@@ -1,0 +1,9 @@
+# Configuration Gitleaks : règles par défaut + exclusions justifiées.
+title = "Puls-Events RAG"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Lockfiles générés"
+paths = ['''uv\.lock''']

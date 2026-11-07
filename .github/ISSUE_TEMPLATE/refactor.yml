@@ -1,0 +1,75 @@
+name: Refactoring
+description: Amélioration du code existant sans changement fonctionnel
+title: "refactor: "
+labels: ["type:refactor"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: "Le refactoring vise à améliorer la qualité, la lisibilité, la maintenabilité ou les performances du code sans en modifier le comportement observable."
+
+  - type: textarea
+    id: debt
+    attributes:
+      label: Dette constatée
+      description: Problème identifié (lien fichier/ligne, complexité cyclomatique, duplication, etc.)
+      placeholder: "`src/puls_events_rag/rag/chain.py:42` — logique de prompt dupliquée"
+    validations:
+      required: true
+
+  - type: textarea
+    id: goal
+    attributes:
+      label: Objectif du refactoring
+      description: Résultat attendu en termes de qualité
+      placeholder: "Réduire la complexité cyclomatique de 15 à 5, extraire la logique métier du contrôleur"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: strategy
+    attributes:
+      label: Stratégie
+      description: Approche de refactoring envisagée
+      options:
+        - strangler pattern (remplacement progressif)
+        - big-bang (réécriture complète dans une PR)
+        - incrémental (plusieurs PRs)
+    validations:
+      required: true
+
+  - type: textarea
+    id: parity
+    attributes:
+      label: Parité de comportement
+      description: Comment garantissez-vous que le comportement fonctionnel reste identique ?
+      placeholder: "Tests d'intégration existants, golden files, snapshot testing, exit code comparé…"
+    validations:
+      required: true
+
+  - type: textarea
+    id: regression
+    attributes:
+      label: Plan de non-régression
+      description: Tests, recette, monitoring post-déploiement
+      placeholder: |
+        - [ ] Tests unitaires des modules impactés
+        - [ ] Tests d'intégration (même coverage)
+        - [ ] Comparaison des sorties sur un jeu de données connu
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: "---"
+
+  - type: dropdown
+    id: splittable
+    attributes:
+      label: Cette issue est-elle scindable en plusieurs branches/PR ?
+      description: Modélise Le travail peut être réparti sur plusieurs branches puis PR
+      options:
+        - "Non, une seule PR suffit"
+        - "Oui, plusieurs branches/PR sont nécessaires"
+    validations:
+      required: true

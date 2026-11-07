@@ -1,0 +1,5 @@
+# Configuration Aikido (lue à chaque scan, y compris les contrôles de PR).
+# Chemins comparés par sous-chaîne, sans jokers. Toute exclusion est justifiée ici ;
+# Gitleaks (ci-security) continue de couvrir les fichiers exclus.
+exclude:
+  paths: []

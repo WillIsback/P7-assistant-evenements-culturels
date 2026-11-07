@@ -1,0 +1,87 @@
+name: Demande de fonctionnalité
+description: Suggérer une idée ou une nouvelle fonctionnalité pour le projet
+title: "feat: "
+labels: ["type:feature"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: "Décrivez la fonctionnalité souhaitée. Plus c'est précis, plus vite elle pourra être implémentée."
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problème utilisateur
+      description: Quel besoin ou quelle difficulté rencontre l'utilisateur ?
+      placeholder: "En tant que <rôle>, je souhaite <objectif> afin de <bénéfice>."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Solution proposée
+      description: Décrivez la solution que vous imaginez
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives envisagées
+      description: Autres solutions ou contournements considérés
+    validations:
+      required: false
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Périmètre / Hors-périmètre
+      description: Ce qui est inclus et ce qui ne l'est pas dans cette demande
+      placeholder: |
+        **Dans le périmètre** :
+        - Point A
+        - Point B
+
+        **Hors-périmètre** :
+        - Point C
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Critère d'acceptation mesurable
+      description: Comment saura-t-on que la fonctionnalité est terminée et fonctionnelle ?
+      placeholder: |
+        - [ ] L'utilisateur peut X
+        - [ ] Le temps de réponse est < 200 ms
+        - [ ] Les tests de non-régression passent
+    validations:
+      required: true
+
+  - type: dropdown
+    id: breaking
+    attributes:
+      label: Impact breaking ?
+      description: Cette fonctionnalité nécessite-t-elle un changement cassant (version majeure) ?
+      options:
+        - "Non (mineure / patch)"
+        - "Oui (breaking change — version majeure)"
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: "---"
+
+  - type: dropdown
+    id: splittable
+    attributes:
+      label: Cette issue est-elle scindable en plusieurs branches/PR ?
+      description: Modélise Le travail peut être réparti sur plusieurs branches puis PR
+      options:
+        - "Non, une seule PR suffit"
+        - "Oui, plusieurs branches/PR sont nécessaires"
+    validations:
+      required: true

@@ -1,0 +1,115 @@
+# Workflow : Sécurité
+# SCA (Dependency Review, registre d'exceptions, Trivy sur uv.lock) et fuite de
+# secrets (Gitleaks). Le SAST (CodeQL) est dans ci-codeql.yml ; Aikido tourne via
+# son app GitHub. Hebdomadaire : nouvelles CVE sur des dépendances inchangées.
+name: ci-security
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+  schedule:
+    - cron: "0 5 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  sca:
+    name: ci-security (SCA)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: read
+      security-events: write
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Dependency Review
+        if: github.event_name == 'pull_request'
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v4
+        with:
+          fail-on-scopes: "runtime"
+          fail-on-severity: "high"
+          deny-licenses: "GPL-2.0-only, GPL-2.0-or-later, GPL-3.0-only, GPL-3.0-or-later, AGPL-3.0-only, AGPL-3.0-or-later, SSPL-1.0"
+
+      - name: Installer uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.13.7"
+
+      - name: Valider le registre des exceptions de sécurité
+        run: uv run --no-project --with pyyaml==6.0.3 python scripts/ci/check_security_exceptions.py
+
+      - name: Scan des dépendances avec Trivy (uv.lock)
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Binaire épinglé (v0.76.0) et vérifié par empreinte SHA-256.
+          TRIVY_SHA256=e24b1c51293c1b15e4ba8d45bbc7891ba053f90278ec2698f3562c993e145fe7
+          TEMP_DIR=$(mktemp -d)
+          curl --proto '=https' --proto-redir '=https' --tlsv1.2 -fsSL \
+            "https://github.com/aquasecurity/trivy/releases/download/v0.76.0/trivy_0.76.0_Linux-64bit.tar.gz" \
+            -o "$TEMP_DIR/trivy.tar.gz"
+          echo "${TRIVY_SHA256}  $TEMP_DIR/trivy.tar.gz" | sha256sum --check --strict -
+          tar -xzf "$TEMP_DIR/trivy.tar.gz" -C "$TEMP_DIR"
+          "$TEMP_DIR/trivy" fs "${GITHUB_WORKSPACE}" \
+            --scanners vuln \
+            --severity HIGH,CRITICAL \
+            --ignorefile "${GITHUB_WORKSPACE}/.trivyignore" \
+            --format sarif \
+            --output "${GITHUB_WORKSPACE}/trivy-fs.sarif" \
+            --exit-code 1
+
+      - name: Upload SARIF Trivy
+        if: ${{ always() && hashFiles('trivy-fs.sarif') != '' }}
+        uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4
+        with:
+          sarif_file: trivy-fs.sarif
+          category: "trivy-fs"
+
+  secret-leak:
+    name: ci-security (Gitleaks)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Scan Gitleaks (commits de la PR, sinon tout l'historique)
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          # Binaire officiel épinglé (v8.30.1) et vérifié par empreinte SHA-256.
+          GITLEAKS_SHA256=551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+          TEMP_DIR=$(mktemp -d)
+          curl --proto '=https' --proto-redir '=https' --tlsv1.2 -fsSL \
+            "https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz" \
+            -o "$TEMP_DIR/gitleaks.tar.gz"
+          echo "${GITLEAKS_SHA256}  $TEMP_DIR/gitleaks.tar.gz" | sha256sum --check --strict -
+          tar -xzf "$TEMP_DIR/gitleaks.tar.gz" -C "$TEMP_DIR"
+          LOG_OPTS=()
+          if [ -n "${BASE_SHA:-}" ] && [ -n "${HEAD_SHA:-}" ]; then
+            LOG_OPTS=(--log-opts="${BASE_SHA}..${HEAD_SHA}")
+          fi
+          "$TEMP_DIR/gitleaks" detect \
+            --source "${GITHUB_WORKSPACE}" \
+            --config "${GITHUB_WORKSPACE}/.gitleaks.toml" \
+            --redact \
+            "${LOG_OPTS[@]}" \
+            --exit-code 1

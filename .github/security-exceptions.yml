@@ -1,0 +1,7 @@
+# Registre des exceptions de sécurité.
+# Chaque exception DOIT avoir un identifiant (cve), une justification (reason),
+# un auteur et une date d'expiration (AAAA-MM-JJ). Validé par
+# scripts/ci/check_security_exceptions.py (ci-security) : une exception expirée
+# fait échouer la CI. Les identifiants listés ici sont reportés dans .trivyignore.
+---
+exceptions: []

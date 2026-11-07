@@ -1,0 +1,100 @@
+# Workflow : Tests
+# - pytest (unitaires, sans réseau : LLM et embeddings simulés), si du Python change.
+# - Image Docker construite SANS publication, si le Dockerfile ou les dépendances
+#   changent : valide le build en relisant le cache de couches écrit par la
+#   release sur main (les PR lisent ce cache, elles ne l'écrivent pas).
+name: ci-test
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    name: Fichiers modifiés
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      python: ${{ steps.diff.outputs.python }}
+      docker: ${{ steps.diff.outputs.docker }}
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Détecter les changements
+        id: diff
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          if [ -z "${BASE_SHA:-}" ]; then
+            echo "python=true" >> "$GITHUB_OUTPUT"; echo "docker=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          FILES=$(git diff --name-only "$BASE_SHA" HEAD)
+          PY=false; DOCKER=false
+          if grep -qE '\.py$|^pyproject\.toml$|^uv\.lock$|^tests/|^\.github/workflows/ci-test\.yml$' <<<"$FILES"; then PY=true; fi
+          if grep -qE '^Dockerfile$|^\.dockerignore$|^pyproject\.toml$|^uv\.lock$|^\.github/workflows/ci-test\.yml$' <<<"$FILES"; then DOCKER=true; fi
+          echo "python=$PY" >> "$GITHUB_OUTPUT"; echo "docker=$DOCKER" >> "$GITHUB_OUTPUT"
+          echo "Python : $PY — Docker : $DOCKER"
+
+  pytest:
+    name: ci-test (pytest)
+    needs: changes
+    if: needs.changes.outputs.python == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Installer uv (cache des dépendances)
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.13.7"
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Dépendances (lockfile vérifié)
+        run: uv sync --locked
+
+      - name: Tests unitaires et couverture
+        run: uv run pytest -m "not integration"
+
+  docker:
+    name: ci-test (image Docker)
+    needs: changes
+    if: needs.changes.outputs.docker == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Build de l'image (sans publication, cache de la release)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          push: false
+          build-args: |
+            VERSION=0.0.0.dev0
+          cache-from: type=gha,scope=image

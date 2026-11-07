@@ -1,0 +1,65 @@
+name: Documentation
+description: Ajout ou mise à jour de documentation
+title: "docs: "
+labels: ["type:docs"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: "La documentation est un artefact essentiel du projet. Merci de préciser le périmètre."
+
+  - type: input
+    id: document
+    attributes:
+      label: Document visé
+      description: Fichier, page ou section concerné(e)
+      placeholder: "README.md, docs/api/endpoints.md, CONTRIBUTING.md"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: doc_type
+    attributes:
+      label: Type de documentation
+      description: Nature du document
+      options:
+        - documentation utilisateur
+        - documentation API / technique
+        - documentation d'architecture
+        - runbook / procédure opérationnelle
+        - autres
+    validations:
+      required: true
+
+  - type: textarea
+    id: audience
+    attributes:
+      label: Public cible
+      description: Qui va lire ce document ?
+      placeholder: "Développeurs, ops, utilisateurs finaux, nouveau contributeur…"
+    validations:
+      required: false
+
+  - type: textarea
+    id: obsolescence
+    attributes:
+      label: Obsolescence constatée
+      description: Si la documentation existe déjà, qu'est-ce qui est obsolète ou manquant ?
+      placeholder: "La section X ne reflète plus le comportement de la v2.0, manque un schéma d'architecture."
+    validations:
+      required: false
+
+  - type: markdown
+    attributes:
+      value: "---"
+
+  - type: dropdown
+    id: splittable
+    attributes:
+      label: Cette issue est-elle scindable en plusieurs branches/PR ?
+      description: Modélise Le travail peut être réparti sur plusieurs branches puis PR
+      options:
+        - "Non, une seule PR suffit"
+        - "Oui, plusieurs branches/PR sont nécessaires"
+    validations:
+      required: true
