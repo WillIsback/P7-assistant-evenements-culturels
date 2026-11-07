@@ -117,8 +117,9 @@ jobs:
           LAST_TAG=$(git tag -l 'v[0-9]*' --sort=-version:refname | head -1 || true)
           LAST_TAG="${LAST_TAG:-v0.0.0}"
           HIGHEST=$(printf '%s\n%s\n' "$LAST_TAG" "$VERSION" | sort -V | tail -1)
-          [ "$HIGHEST" = "$VERSION" ] && [ "$LAST_TAG" != "$VERSION" ] \
-            || { echo "❌ $VERSION n'est pas supérieure à $LAST_TAG."; exit 1; }
+          if [ "$HIGHEST" != "$VERSION" ] || [ "$LAST_TAG" = "$VERSION" ]; then
+            echo "❌ $VERSION n'est pas supérieure à $LAST_TAG."; exit 1
+          fi
           echo "✅ $VERSION > $LAST_TAG"
 
   # Gate qualité : seule étape qui appelle un vrai LLM (OpenRouter, sans réflexion).
