@@ -1,0 +1,28 @@
+# Workflow : fusion automatique des PR Dependabot
+# `--auto` : GitHub ne fusionne qu'une fois les gates requises par la règle de
+# protection de main au vert. Une PR en échec reste ouverte (correction manuelle).
+name: dependabot-auto-merge
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: read
+
+jobs:
+  auto-merge:
+    name: Auto-merge Dependabot
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Activer la fusion automatique (squash)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: gh pr merge --auto --squash "$PR_URL"

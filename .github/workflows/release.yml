@@ -1,0 +1,332 @@
+# Workflow : Release (CD)
+# Merge d'une PR de lot sur main (ou déclenchement manuel) :
+#   1. version semver calculée depuis les commits depuis le dernier tag ;
+#   2. gate de cohérence de version ;
+#   3. gate d'évaluation RAG (jeu de test annoté, LLM via OpenRouter) ;
+#   4. image Docker construite UNE seule fois, scannée (Trivy) puis publiée sur
+#      GHCR avec attestation de provenance ;
+#   5. tag vX.Y.Z et GitHub Release (changelog + rapport d'évaluation).
+# Lint, tests, CodeQL et SCA ont déjà tourné sur la PR de lot : pas rejoués ici.
+name: release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Type de bump (auto = détection depuis les commits)"
+        type: choice
+        options: [auto, patch, minor, major, none]
+        default: auto
+      dry_run:
+        description: "Dry-run : build et évaluation sans publication"
+        type: boolean
+        default: true
+
+concurrency:
+  group: release-main
+  cancel-in-progress: false # sérialisation stricte
+
+permissions:
+  contents: read
+
+jobs:
+  detect:
+    name: Détection et calcul de version
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.calc.outputs.version || 'skipped' }}
+      bump: ${{ steps.calc.outputs.bump || 'none' }}
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+
+      - name: Calcul de la version
+        id: calc
+        shell: bash
+        env:
+          INPUT_BUMP: ${{ inputs.bump }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "push" ] && git log -1 --format=%s | grep -qiE '\[skip release\]'; then
+            echo "🔇 Commit marqué [skip release]."
+            echo "version=skipped" >> "$GITHUB_OUTPUT"; echo "bump=none" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          LAST_TAG=$(git tag -l 'v[0-9]*' --sort=-version:refname | head -1 || true)
+          RANGE="${LAST_TAG:+$LAST_TAG..}HEAD"
+          BASE="${LAST_TAG:-v0.0.0}"
+          IFS=. read -r MAJOR MINOR PATCH <<<"${BASE#v}"
+          if [ -n "${INPUT_BUMP:-}" ] && [ "$INPUT_BUMP" != "auto" ]; then
+            BUMP="$INPUT_BUMP"
+          else
+            # Seuls feat / fix / perf (ou un breaking change « ! ») déclenchent une release.
+            BUMP="none"
+            while IFS= read -r COMMIT; do
+              [ -z "$COMMIT" ] && continue
+              if grep -qE '^[a-zA-Z]+(\(.+\))?!:' <<<"$COMMIT"; then BUMP="major"
+              elif grep -qE '^feat(\(.+\))?:' <<<"$COMMIT" && [ "$BUMP" != "major" ]; then BUMP="minor"
+              elif grep -qE '^(fix|perf)(\(.+\))?:' <<<"$COMMIT" && [ "$BUMP" = "none" ]; then BUMP="patch"
+              fi
+            done < <(git log --format=%s "$RANGE")
+          fi
+          echo "Dernier tag : ${LAST_TAG:-aucun} — bump : $BUMP"
+          if [ "$BUMP" = "none" ]; then
+            echo "ℹ️  Aucun commit éligible (feat/fix/perf) : pas de release."
+            echo "version=skipped" >> "$GITHUB_OUTPUT"; echo "bump=none" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          case "$BUMP" in
+            major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
+            minor) MINOR=$((MINOR + 1)); PATCH=0 ;;
+            patch) PATCH=$((PATCH + 1)) ;;
+          esac
+          VERSION="v$MAJOR.$MINOR.$PATCH"
+          echo "Version calculée : $VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "bump=$BUMP" >> "$GITHUB_OUTPUT"
+
+  gate-version-consistency:
+    name: gate-version-consistency
+    needs: detect
+    if: needs.detect.outputs.version != 'skipped'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+
+      - name: Le tag ne doit pas exister et doit être supérieur au dernier
+        shell: bash
+        env:
+          VERSION: ${{ needs.detect.outputs.version }}
+        run: |
+          set -euo pipefail
+          if git ls-remote --tags origin "refs/tags/$VERSION" | grep -q .; then
+            echo "❌ Le tag $VERSION existe déjà."; exit 1
+          fi
+          LAST_TAG=$(git tag -l 'v[0-9]*' --sort=-version:refname | head -1 || true)
+          LAST_TAG="${LAST_TAG:-v0.0.0}"
+          HIGHEST=$(printf '%s\n%s\n' "$LAST_TAG" "$VERSION" | sort -V | tail -1)
+          if [ "$HIGHEST" != "$VERSION" ] || [ "$LAST_TAG" = "$VERSION" ]; then
+            echo "❌ $VERSION n'est pas supérieure à $LAST_TAG."; exit 1
+          fi
+          echo "✅ $VERSION > $LAST_TAG"
+
+  # Gate qualité : seule étape qui appelle un vrai LLM (OpenRouter, sans réflexion).
+  # Contrat : scripts/evaluate.py écrit reports/evaluation.md et sort en erreur
+  # sous les seuils. Tant que le script n'existe pas, la gate est neutre.
+  evaluate:
+    name: gate-evaluation-rag
+    needs: [detect, gate-version-consistency]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Installer uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.13.7"
+
+      - name: Évaluation sur le jeu de test annoté
+        shell: bash
+        env:
+          LLM_PROFILE: ci
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          VERSION: ${{ needs.detect.outputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir -p reports
+          if [ ! -f scripts/evaluate.py ]; then
+            echo "ℹ️  scripts/evaluate.py absent : gate neutre."
+            printf '# Évaluation RAG — %s\n\nAucune évaluation : script absent.\n' "$VERSION" > reports/evaluation.md
+            exit 0
+          fi
+          uv sync --locked
+          uv run python scripts/evaluate.py --output reports/evaluation.md
+
+      - name: Conserver le rapport d'évaluation
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: evaluation-report
+          path: reports/evaluation.md
+          if-no-files-found: ignore
+
+  image:
+    name: Image Docker (build unique, scan, publication)
+    needs: [detect, evaluate]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    outputs:
+      image: ${{ steps.push.outputs.image }}
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Nom de l'image
+        id: name
+        shell: bash
+        env:
+          REPO: ${{ github.repository }}
+        run: echo "image=ghcr.io/${REPO,,}" >> "$GITHUB_OUTPUT"
+
+      - name: Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      # Build unique chargé dans le démon local : scanné puis poussé tel quel.
+      # Le cache de couches (scope « image ») est relu par la CI de PR.
+      - name: Build de l'image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          load: true
+          push: false
+          tags: |
+            ${{ steps.name.outputs.image }}:${{ needs.detect.outputs.version }}
+            ${{ steps.name.outputs.image }}:latest
+          build-args: |
+            VERSION=${{ needs.detect.outputs.version }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.version=${{ needs.detect.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=image
+          cache-to: type=gha,scope=image,mode=max
+
+      - name: Scan de l'image (Trivy)
+        shell: bash
+        env:
+          IMAGE: ${{ steps.name.outputs.image }}:${{ needs.detect.outputs.version }}
+        run: |
+          set -euo pipefail
+          TRIVY_SHA256=e24b1c51293c1b15e4ba8d45bbc7891ba053f90278ec2698f3562c993e145fe7
+          TEMP_DIR=$(mktemp -d)
+          curl --proto '=https' --proto-redir '=https' --tlsv1.2 -fsSL \
+            "https://github.com/aquasecurity/trivy/releases/download/v0.76.0/trivy_0.76.0_Linux-64bit.tar.gz" \
+            -o "$TEMP_DIR/trivy.tar.gz"
+          echo "${TRIVY_SHA256}  $TEMP_DIR/trivy.tar.gz" | sha256sum --check --strict -
+          tar -xzf "$TEMP_DIR/trivy.tar.gz" -C "$TEMP_DIR"
+          "$TEMP_DIR/trivy" image "$IMAGE" \
+            --scanners vuln --ignore-unfixed --severity HIGH,CRITICAL \
+            --ignorefile "${GITHUB_WORKSPACE}/.trivyignore" --exit-code 1
+
+      - name: Connexion à GHCR
+        if: github.event_name == 'push' || !inputs.dry_run
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publication de l'image
+        id: push
+        if: github.event_name == 'push' || !inputs.dry_run
+        shell: bash
+        env:
+          IMAGE: ${{ steps.name.outputs.image }}
+          VERSION: ${{ needs.detect.outputs.version }}
+        run: |
+          set -euo pipefail
+          docker push "$IMAGE:$VERSION"
+          docker push "$IMAGE:latest"
+          DIGEST=$(docker inspect --format '{{index .RepoDigests 0}}' "$IMAGE:$VERSION" | cut -d@ -f2)
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+          echo "image=$IMAGE:$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Attestation de provenance de l'image
+        if: steps.push.outcome == 'success'
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ${{ steps.name.outputs.image }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+
+  publish:
+    name: Tag et GitHub Release
+    needs: [detect, image]
+    if: github.event_name == 'push' || !inputs.dry_run
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+
+      - name: Récupérer le rapport d'évaluation
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: evaluation-report
+          path: reports
+
+      - name: Générer le changelog
+        shell: bash
+        env:
+          VERSION: ${{ needs.detect.outputs.version }}
+          IMAGE: ${{ needs.image.outputs.image }}
+        run: |
+          set -euo pipefail
+          LAST_TAG=$(git tag -l 'v[0-9]*' --sort=-version:refname | grep -vxF "$VERSION" | head -1 || true)
+          {
+            echo "## [${VERSION}] - $(date +%Y-%m-%d)"
+            echo ""
+            echo "### Changements depuis ${LAST_TAG:-le début}"
+            echo ""
+            git log "${LAST_TAG:+$LAST_TAG..}HEAD" --no-merges --format="* %s"
+            echo ""
+            echo "### Image Docker"
+            echo ""
+            echo "\`docker run --rm -p 8000:8000 --env-file .env ${IMAGE}\`"
+            echo ""
+            echo "Vérifier la provenance : \`gh attestation verify oci://${IMAGE} -R ${GITHUB_REPOSITORY}\`"
+          } > changelog.md
+          cat changelog.md
+
+      - name: Créer le tag et la GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Jeton à grain fin optionnel (Contents + Workflows en écriture) : GitHub
+          # refuse (403) un tag via GITHUB_TOKEN sur un commit qui modifie
+          # .github/workflows depuis la release précédente.
+          RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          VERSION: ${{ needs.detect.outputs.version }}
+          TARGET: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if ! gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${VERSION}" >/dev/null 2>&1; then
+            GH_TOKEN="${RELEASE_TOKEN:-$GH_TOKEN}" gh api --method POST "repos/${GITHUB_REPOSITORY}/git/refs" \
+              -f ref="refs/tags/${VERSION}" -f sha="${TARGET}" >/dev/null
+          fi
+          if gh release view "$VERSION" >/dev/null 2>&1; then
+            gh release upload "$VERSION" reports/evaluation.md --clobber
+          else
+            gh release create "$VERSION" reports/evaluation.md \
+              --title "Puls-Events RAG $VERSION" --notes-file changelog.md --latest
+          fi
+          echo "✅ Release $VERSION publiée."

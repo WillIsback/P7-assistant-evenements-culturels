@@ -1,0 +1,107 @@
+# Workflow : SAST (CodeQL, suite security-extended)
+# PR : seulement les langages modifiés (python, actions) — quelques minutes.
+# Hebdomadaire et à la demande : analyse complète.
+name: ci-codeql
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+  schedule:
+    - cron: "0 4 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    name: Langages modifiés
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      python: ${{ steps.diff.outputs.python }}
+      actions: ${{ steps.diff.outputs.actions }}
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Détecter les langages touchés
+        id: diff
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          if [ -z "${BASE_SHA:-}" ]; then
+            echo "python=true" >> "$GITHUB_OUTPUT"; echo "actions=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          FILES=$(git diff --name-only "$BASE_SHA" HEAD)
+          PY=false; ACT=false
+          if grep -qE '\.py$|^\.github/workflows/ci-codeql\.yml$' <<<"$FILES"; then PY=true; fi
+          if grep -qE '^\.github/(workflows|actions)/' <<<"$FILES"; then ACT=true; fi
+          echo "python=$PY" >> "$GITHUB_OUTPUT"; echo "actions=$ACT" >> "$GITHUB_OUTPUT"
+          echo "Python : $PY — Actions : $ACT"
+
+  python:
+    name: ci-codeql (python)
+    needs: changes
+    if: needs.changes.outputs.python == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Initialiser CodeQL
+        uses: github/codeql-action/init@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4
+        with:
+          languages: python
+          build-mode: none
+          queries: security-extended
+
+      - name: Analyse CodeQL
+        uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4
+        with:
+          category: "/language:python"
+
+  actions:
+    name: ci-codeql (actions)
+    needs: changes
+    if: needs.changes.outputs.actions == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Initialiser CodeQL
+        uses: github/codeql-action/init@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4
+        with:
+          languages: actions
+          build-mode: none
+          queries: security-extended
+
+      - name: Analyse CodeQL
+        uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4
+        with:
+          category: "/language:actions"

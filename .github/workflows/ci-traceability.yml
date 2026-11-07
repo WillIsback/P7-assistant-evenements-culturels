@@ -1,0 +1,82 @@
+# Workflow : Traçabilité
+# Vérifie que la PR est adossée à une issue, que son type est valide et que
+# l'impact semver déclaré est cohérent avec le titre.
+name: ci-traceability
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+concurrency:
+  group: traceability-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  ci-traceability:
+    name: ci-traceability
+    # Dependabot n'adosse pas ses PR à une issue : traçabilité non applicable.
+    if: github.event_name == 'pull_request' && github.event.pull_request.user.login != 'dependabot[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Vérifier la référence aux issues
+        shell: bash
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          set -euo pipefail
+          # Patterns acceptés : Closes #N, Related to #N, Task: #N
+          if printf '%s' "$PR_BODY" | grep -qE '(Closes|Related to|Task:)\s+#[0-9]+'; then
+            echo "✅ Issue(s) référencée(s) :"
+            printf '%s' "$PR_BODY" | grep -oE '(Closes|Related to|Task:)\s+#[0-9]+'
+          else
+            echo "❌ Aucune référence d'issue dans le corps de la PR."
+            echo "   Obligation : au moins une ligne 'Closes #...', 'Related to #...' ou 'Task: #...'"
+            exit 1
+          fi
+
+      - name: Vérifier le type de la PR
+        shell: bash
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          set -euo pipefail
+          TYPE=$(printf '%s' "$PR_TITLE" | sed -n 's/^\([a-z]*\).*/\1/p')
+          VALID_TYPES="feat fix refactor docs chore test perf ci build revert"
+          if echo "$VALID_TYPES" | grep -qw "$TYPE"; then
+            echo "✅ Type '$TYPE' valide."
+          else
+            echo "❌ Type '$TYPE' non reconnu. Types valides : $VALID_TYPES"
+            exit 1
+          fi
+
+      - name: Vérifier la cohérence semver
+        shell: bash
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          set -euo pipefail
+          DECLARED_BUMP=""
+          if printf '%s' "$PR_BODY" | grep -q '\- \[x\] .*Patch'; then DECLARED_BUMP="patch"
+          elif printf '%s' "$PR_BODY" | grep -q '\- \[x\] .*Minor'; then DECLARED_BUMP="minor"
+          elif printf '%s' "$PR_BODY" | grep -q '\- \[x\] .*Major'; then DECLARED_BUMP="major"
+          elif printf '%s' "$PR_BODY" | grep -q '\- \[x\] .*Aucune release'; then DECLARED_BUMP="none"
+          fi
+          INFERRED_BUMP="none"
+          if printf '%s' "$PR_TITLE" | grep -qE '^[a-z]+(\(.+\))?!:'; then INFERRED_BUMP="major"
+          elif printf '%s' "$PR_TITLE" | grep -qE '^feat'; then INFERRED_BUMP="minor"
+          elif printf '%s' "$PR_TITLE" | grep -qE '^(fix|perf)'; then INFERRED_BUMP="patch"
+          fi
+          echo "Bump déclaré : ${DECLARED_BUMP:-non spécifié} — inféré du titre : $INFERRED_BUMP"
+          if [ -n "$DECLARED_BUMP" ] && [ "$DECLARED_BUMP" != "$INFERRED_BUMP" ]; then
+            echo "⚠️  Incohérence semver (alerte non bloquante) : la release utilise les commits de main."
+          else
+            echo "✅ Cohérence semver vérifiée."
+          fi

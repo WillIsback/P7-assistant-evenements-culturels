@@ -1,0 +1,43 @@
+name: Maintenance / outillage
+description: CI/CD, dépendances, build, configuration, données — sans changement fonctionnel
+title: "chore: "
+labels: ["type:chore"]
+assignees: []
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Domaine
+      options:
+        - CI/CD (workflows, gates, release)
+        - dépendances
+        - build / Docker
+        - données / index vectoriel
+        - outillage de développement
+        - autre
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Ce qui doit changer et pourquoi
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected_outcome
+    attributes:
+      label: Résultat attendu
+      description: Critère vérifiable une fois l'issue traitée
+    validations:
+      required: true
+
+  - type: textarea
+    id: ci_time
+    attributes:
+      label: Impact sur le temps de CI/CD
+      description: Ajout ou suppression de temps d'exécution estimé, caches, filtres par chemins
+    validations:
+      required: false

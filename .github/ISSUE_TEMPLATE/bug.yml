@@ -1,0 +1,110 @@
+name: Rapport de bug
+description: Signaler un comportement inattendu ou une régression
+title: "fix: "
+labels: ["type:bug"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: "Merci de prendre le temps de remplir ce rapport de bug. Les informations fournies permettront un diagnostic plus rapide."
+
+  - type: input
+    id: context
+    attributes:
+      label: Contexte
+      description: Dans quel contexte le bug est-il apparu ?
+      placeholder: Exécution normale, relecture, montée de version…
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction pas-à-pas
+      description: Quelles sont les étapes pour reproduire le problème ?
+      placeholder: |
+        1. Aller sur '...'
+        2. Cliquer sur '...'
+        3. Constater l'erreur
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Comportement attendu
+      description: Que devrait-il se passer normalement ?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Comportement obtenu
+      description: Que se passe-t-il réellement ?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Sévérité
+      description: Impact estimé du bug
+      options:
+        - critique (bloquant, perte de données)
+        - majeure (fonctionnalité cassée, contournement difficile)
+        - mineure (fonctionnalité dégradée, contournement existant)
+        - cosmétique (affichage, typo, sans impact fonctionnel)
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: Environnement
+      description: Version impactée, OS, navigateur, etc.
+      placeholder: v0.2.1, Docker local, profil local (vLLM) ou ci (OpenRouter)
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / stack trace
+      description: Copiez les messages d'erreur, stack trace, ou toute sortie utile
+      render: shell
+    validations:
+      required: false
+
+  - type: dropdown
+    id: workaround
+    attributes:
+      label: Contournement identifié ?
+      description: Existe-t-il un contournement connu ou un correctif en cours ?
+      options:
+        - "Non"
+        - "Oui (décrit ci-dessous)"
+    validations:
+      required: true
+
+  - type: textarea
+    id: workaround_description
+    attributes:
+      label: Description du contournement
+    validations:
+      required: false
+
+  - type: markdown
+    attributes:
+      value: "---"
+
+  - type: dropdown
+    id: splittable
+    attributes:
+      label: Cette issue est-elle scindable en plusieurs branches/PR ?
+      description: Modélise Le travail peut être réparti sur plusieurs branches puis PR
+      options:
+        - "Non, une seule PR suffit"
+        - "Oui, plusieurs branches/PR sont nécessaires"
+    validations:
+      required: true
