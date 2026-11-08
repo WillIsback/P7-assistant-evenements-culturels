@@ -1,18 +1,35 @@
 # Démo locale en une commande : docker compose up
-# L'image publiée embarque l'index régional ; les volumes gardent l'index resynchronisé,
-# la base (comptes, conversations) et le cache d'embeddings entre deux lancements.
+# L'image publiée embarque l'index régional. Valkey sert de cache persistant (embeddings,
+# réponses Open Agenda) ; les volumes gardent l'index resynchronisé, la base (comptes,
+# conversations) et le cache entre deux lancements.
 services:
   api:
     image: ghcr.io/willisback/p7-assistant-evenements-culturels:${PULS_VERSION:-latest}
     env_file: .env
     environment:
       LLM_PROFILE: ${LLM_PROFILE:-ci}
+      CACHE_URL: redis://valkey:6379/0
     ports:
       - "8000:8000"
     volumes:
       - puls-data:/app/data
-      - puls-cache:/app/cache
+    depends_on:
+      valkey:
+        condition: service_healthy
+
+  valkey:
+    image: valkey/valkey:8-alpine
+    command: ["valkey-server", "--save", "60", "1", "--appendonly", "no"]
+    ports:
+      - "127.0.0.1:6379:6379"  # scripts locaux : CACHE_URL=redis://localhost:6379/0
+    volumes:
+      - puls-valkey:/data
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
 volumes:
   puls-data:
-  puls-cache:
+  puls-valkey:

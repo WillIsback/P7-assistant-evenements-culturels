@@ -123,8 +123,8 @@ jobs:
           echo "✅ $VERSION > $LAST_TAG"
 
   # Index régional construit UNE fois par release, réutilisé par l'évaluation et
-  # embarqué dans l'image. Cache d'embeddings conservé entre releases : seuls les
-  # passages nouveaux sont vectorisés. Sans OPENAGENDA_API_KEY : index vide (l'image
+  # embarqué dans l'image. Cache d'embeddings dans un Valkey éphémère dont le RDB est
+  # conservé entre releases (actions/cache) : seuls les passages nouveaux sont vectorisés. Sans OPENAGENDA_API_KEY : index vide (l'image
   # se synchronise alors au premier démarrage).
   index:
     name: Index régional (collecte + embeddings)
@@ -142,18 +142,29 @@ jobs:
         with:
           version: "0.13.7"
 
-      - name: Cache des embeddings
+      - name: Cache des embeddings (sauvegarde Valkey)
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: data/cache
-          key: embeddings-${{ github.run_id }}
-          restore-keys: embeddings-
+          path: data/valkey
+          key: valkey-embeddings-${{ github.run_id }}
+          restore-keys: valkey-embeddings-
+
+      - name: Valkey éphémère (relit la sauvegarde précédente)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p data/valkey
+          docker run -d --name valkey --user "$(id -u):$(id -g)" -p 127.0.0.1:6379:6379 \
+            -v "$PWD/data/valkey:/data" valkey/valkey:8-alpine \
+            valkey-server --save "" --appendonly no --dir /data
+          for _ in $(seq 1 30); do docker exec valkey valkey-cli ping 2>/dev/null | grep -q PONG && break; sleep 1; done
 
       - name: Construction de l'index
         shell: bash
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           OPENAGENDA_API_KEY: ${{ secrets.OPENAGENDA_API_KEY }}
+          CACHE_URL: redis://127.0.0.1:6379/0
         run: |
           set -euo pipefail
           mkdir -p data/index
@@ -164,6 +175,13 @@ jobs:
           fi
           uv sync --locked --no-dev
           uv run --no-sync python scripts/build_index.py
+
+      - name: Sauvegarde du cache Valkey (pour la release suivante)
+        if: always()
+        shell: bash
+        run: |
+          docker exec valkey valkey-cli SAVE || true
+          docker rm -f valkey >/dev/null 2>&1 || true
 
       - name: Conserver l'index
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

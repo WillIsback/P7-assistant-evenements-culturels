@@ -7,10 +7,12 @@ import contextlib
 from datetime import UTC, datetime
 
 import httpx
+import pytest
+from cashews import Cache
 from langchain_core.embeddings import DeterministicFakeEmbedding, Embeddings
 from langchain_core.language_models.fake_chat_models import FakeListChatModel
 
-from puls_events_rag.core.cache import CachedEmbeddings, make_key
+from puls_events_rag.core.cache import CachedEmbeddings, make_key, setup_cache
 from puls_events_rag.core.providers.open_agenda import OpenAgendaClient
 from puls_events_rag.core.providers.openai_api import KeywordExtractionError, LangOpenAI
 
@@ -129,3 +131,10 @@ def test_open_agenda_date_par_defaut_arrondie_au_jour() -> None:
     since = datetime.fromisoformat(requests[0].url.params["timings[gte]"])
     assert (since.hour, since.minute, since.second, since.microsecond) == (0, 0, 0, 0)
     assert since.tzinfo == UTC
+
+
+def test_cache_disque_refuse(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("puls_events_rag.core.cache.cache", Cache())
+
+    with pytest.raises(ValueError, match="Valkey"):
+        setup_cache("disk://?directory=/tmp/x")

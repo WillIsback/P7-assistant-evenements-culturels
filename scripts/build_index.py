@@ -5,8 +5,9 @@ Usage ::
     uv run python scripts/build_index.py                 # collecte complète puis index
     uv run python scripts/build_index.py --skip-collect  # réindexe data/raw/events.jsonl
 
-Les embeddings passent par un cache disque (``data/cache`` sauf ``CACHE_URL``) :
-une reconstruction quotidienne ne paie que les passages nouveaux ou modifiés.
+Avec ``CACHE_URL=redis://…`` (Valkey), les embeddings sont conservés : une
+reconstruction quotidienne ne paie que les passages nouveaux ou modifiés. Sans
+``CACHE_URL``, cache en mémoire : tout est revectorisé.
 """
 
 from __future__ import annotations
@@ -14,7 +15,6 @@ from __future__ import annotations
 import argparse
 import asyncio
 import logging
-import os
 import time
 
 from dotenv import load_dotenv
@@ -23,8 +23,6 @@ from puls_events_rag.core.cache import setup_cache
 from puls_events_rag.core.collect import RAW_PATH
 from puls_events_rag.core.providers.openai_api import cached_embeddings
 from puls_events_rag.core.sync import IndexSettings, sync_index
-
-DEFAULT_SCRIPT_CACHE = "disk://?directory=./data/cache&shards=4"
 
 
 def main() -> None:
@@ -36,7 +34,7 @@ def main() -> None:
 
     load_dotenv()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
-    setup_cache(os.getenv("CACHE_URL") or DEFAULT_SCRIPT_CACHE)
+    setup_cache()  # CACHE_URL (Valkey) sinon mémoire
     settings = IndexSettings.from_env()
     embeddings = cached_embeddings()
 

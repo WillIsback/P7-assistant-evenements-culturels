@@ -102,7 +102,7 @@ sequenceDiagram
 | Index régional | `core/index.py` | Faiss persistant, retrieval filtré exhaustif, recherche hybride, élargissement |
 | Synchronisation | `core/sync.py`, `scripts/build_index.py` | reconstruction par lot, fraîcheur 24 h, échange atomique |
 | Adaptateur LLM | `core/providers/openai_api.py` | un seul client compatible OpenAI, profils `local` / `ci`, sans réflexion |
-| Cache | `core/cache.py` | embeddings (30 j), réponses Open Agenda : mémoire, disque ou Valkey |
+| Cache | `core/cache.py` | embeddings (30 j), réponses Open Agenda : Valkey (persistant, partagé) ou mémoire ; sérialisation JSON, jamais pickle |
 | Chaîne RAG | `rag/query.py`, `rag/chain.py` | question → requête structurée → retrieval → réponse sourcée |
 | API | `api/` | `/ask`, `/metadata`, `/health`, `/rebuild` |
 | Chat multi-tour | `chat/`, `auth/`, `database/` | sessions par utilisateur, agent à outils, streaming SSE |
@@ -367,8 +367,8 @@ en bout p50 5,0 s et p95 6,6 s (profil local, LLM dominant) ; image Docker de 53
   (Langfuse) en production.
 
 **Passage en production.** Image publiée sur GHCR à chaque release (scan Trivy, attestation
-de provenance) ; déploiement conteneur avec volumes (`/app/data`, `/app/cache`) ;
-resynchronisation planifiée ; Valkey pour le cache partagé ; PostgreSQL à la place de
+de provenance) ; déploiement conteneur avec volume `/app/data` et Valkey managé pour le
+cache partagé (déjà utilisé par `compose.yaml` et la release) ; resynchronisation planifiée ; PostgreSQL à la place de
 SQLite si plusieurs instances ; clés en secrets ; suivi des coûts et des erreurs.
 
 ## 9. Organisation du dépôt GitHub

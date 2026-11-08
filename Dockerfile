@@ -31,20 +31,19 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/* \
     && python -m pip uninstall -y -q setuptools wheel \
     && useradd --create-home --uid 10001 app \
-    && install -d -o app -g app /app/cache /app/data
+    && install -d -o app -g app /app/data
 COPY --from=builder --chown=app:app /app/.venv /app/.venv
 # Index régional construit par la release (vide en CI de PR : synchro au démarrage).
 COPY --chown=app:app data/index/ /app/data/index/
-# /app appartient à root : l'utilisateur app n'écrit que dans deux dossiers.
+# /app appartient à root : l'utilisateur app n'écrit que dans /app/data.
 #   /app/data  : index régional, données collectées et base SQLite (comptes, sessions de
 #                chat), à monter en volume pour les garder ;
-#   /app/cache : cache disque (diskcache), jetable. CACHE_URL=redis://... pour Valkey.
+# Cache : CACHE_URL=redis://… (Valkey, cf. compose.yaml) ; sans lui, mémoire du processus.
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
     DATABASE_URL="sqlite:///./data/database.db" \
-    CACHE_URL="disk://?directory=/app/cache&shards=4" \
     INDEX_DIR="/app/data/index"
-VOLUME ["/app/data", "/app/cache"]
+VOLUME ["/app/data"]
 USER app
 WORKDIR /app
 EXPOSE 8000

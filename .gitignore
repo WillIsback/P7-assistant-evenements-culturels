@@ -23,7 +23,7 @@ data/processed/
 data/index/
 data/index.tmp/
 data/index.old/
-data/cache/
+data/valkey/
 reports/
 
 # Bases SQLite locales

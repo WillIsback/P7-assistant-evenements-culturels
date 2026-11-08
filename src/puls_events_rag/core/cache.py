@@ -2,10 +2,9 @@
 
 ``CACHE_URL`` choisit le backend :
 
-- ``disk://?directory=/app/cache`` : disque (diskcache/SQLite), valeur de
-  l'image Docker : partagé entre workers, survit aux redémarrages ;
-- ``redis://hote:6379/0`` : Valkey (protocole Redis), si un serveur existe ;
-- absent : cache **en mémoire** du processus (dev, tests) ;
+- ``redis://hote:6379/0`` : **Valkey** (protocole Redis), le cache persistant et
+  partagé (service ``valkey`` de ``compose.yaml``, Valkey éphémère en release) ;
+- absent : cache **en mémoire** du processus (tests, ``docker run`` seul) ;
 - ``CACHE_ENABLED=false`` désactive tout cache.
 
 Les valeurs sont sérialisées en **JSON**, jamais en pickle : relire un pickle
@@ -53,6 +52,10 @@ def setup_cache(url: str | None = None, *, enabled: bool | None = None) -> None:
     if enabled is None:
         enabled = (_env("CACHE_ENABLED") or "true").lower() not in {"0", "false", "no"}
     url = url or _env("CACHE_URL") or MEMORY_URL
+    if url.startswith("disk://"):
+        raise ValueError(
+            "Cache disque retiré (diskcache vulnérable) : CACHE_URL=redis://… (Valkey)"
+        )
     cache.setup(url, pickle_type="json", enable=enabled)
     logger.info("Cache %s : %s", "actif" if enabled else "désactivé", url.split("@")[-1])
 
