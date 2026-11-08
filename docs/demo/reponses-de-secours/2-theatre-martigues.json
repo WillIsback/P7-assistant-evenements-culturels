@@ -1,0 +1,45 @@
+{
+    "answer": "Voici les spectacles au **Théâtre des Salins** à **Martigues** en décembre 2026 :\n\n1. **Frasques**\n   - **Dates** : 16 et 17 décembre\n   - **Lieu** : Théâtre des Salins, 19 quai Paul Doumer, 13500 Martigues\n\n2. **Nous le Red Star**\n   - **Date** : Mercredi 9 décembre, 20h30\n   - **Lieu** : Théâtre des Salins, 19 quai Paul Doumer, 13500 Martigues\n\n3. **Bleu**\n   - **Dates** : 4 et 5 décembre\n   - **Lieu** : Théâtre des Salins, 19 quai Paul Doumer, 13500 Martigues",
+    "sources": [
+        {
+            "uid": "46306505",
+            "title": "Frasques",
+            "date_range": "16 et 17 décembre",
+            "location": "Théâtre des Salins, Théâtre des Salins, 19 quai Paul Doumer, 13500 Martigues, France",
+            "commune": "Martigues",
+            "url": "https://openagenda.com/theatre-les-salins/events/46306505_frasques-6890788",
+            "distance_km": null,
+            "score": 0.4192
+        },
+        {
+            "uid": "82543990",
+            "title": "Nous le Red Star",
+            "date_range": "Mercredi 9 décembre, 20h30",
+            "location": "Théâtre des Salins, Théâtre des Salins, 19 quai Paul Doumer, 13500 Martigues, France",
+            "commune": "Martigues",
+            "url": "https://openagenda.com/theatre-les-salins/events/82543990_nous-le-red-star-8101950",
+            "distance_km": null,
+            "score": 0.4401
+        },
+        {
+            "uid": "94309076",
+            "title": "Bleu",
+            "date_range": "4 et 5 décembre",
+            "location": "Théâtre des Salins, Théâtre des Salins, 19 quai Paul Doumer, 13500 Martigues, France",
+            "commune": "Martigues",
+            "url": "https://openagenda.com/theatre-les-salins/events/94309076_bleu-9213800",
+            "distance_km": null,
+            "score": 0.4444
+        }
+    ],
+    "filters": {
+        "query": "spectacles au théâtre",
+        "communes": [
+            "Martigues"
+        ],
+        "since": "2026-12-01",
+        "until": "2026-12-31",
+        "radius_km": null
+    },
+    "latency_ms": 3180
+}

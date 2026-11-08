@@ -1,0 +1,14 @@
+{
+    "answer": "Je recommande des événements de la métropole Aix-Marseille-Provence. Précisez ce qui vous intéresse : un thème (atelier, forum, concert…), une commune ou une période.",
+    "sources": [],
+    "filters": {
+        "query": "",
+        "communes": [
+            "Marseille"
+        ],
+        "since": "2026-11-09",
+        "until": "2026-11-09",
+        "radius_km": null
+    },
+    "latency_ms": 834
+}

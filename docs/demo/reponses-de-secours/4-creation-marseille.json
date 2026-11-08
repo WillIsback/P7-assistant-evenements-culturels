@@ -1,0 +1,45 @@
+{
+    "answer": "Voici un atelier sur la création d'entreprise à Marseille :\n\n**Atelier Accompagnement à la Création d'Entreprise**\n- **Date** : Lundi 23 novembre 2026, 10h00\n- **Lieu** : Agence MARSEILLE BELLE DE MAI, 13003 Marseille (Marseille)",
+    "sources": [
+        {
+            "uid": "97467235",
+            "title": "Atelier Accompagnement à la Création d'Entreprise",
+            "date_range": "Lundi 23 novembre, 10h00",
+            "location": "Agence MARSEILLE BELLE DE MAI, 13003 Marseille",
+            "commune": "Marseille",
+            "url": "https://openagenda.com/francetravail/events/97467235_atelier-accompagnement-a-la-creation-dentreprise-5227093",
+            "distance_km": null,
+            "score": 0.1777
+        },
+        {
+            "uid": "4568248",
+            "title": "Atelier Accompagnement à la Création d'Entreprise",
+            "date_range": "Mardi 28 avril, 09h00",
+            "location": "Agence MARSEILLE BELLE DE MAI, 13003 Marseille",
+            "commune": "Marseille",
+            "url": "https://openagenda.com/francetravail/events/4568248_atelier-accompagnement-a-la-creation-dentreprise-3359927",
+            "distance_km": null,
+            "score": 0.1795
+        },
+        {
+            "uid": "56168362",
+            "title": "Atelier Accompagnement à la Création d'Entreprise",
+            "date_range": "Jeudi 25 juin, 14h00",
+            "location": "Agence MARSEILLE BELLE DE MAI, 13003 Marseille",
+            "commune": "Marseille",
+            "url": "https://openagenda.com/francetravail/events/56168362_atelier-accompagnement-a-la-creation-dentreprise-7585179",
+            "distance_km": null,
+            "score": 0.1803
+        }
+    ],
+    "filters": {
+        "query": "atelier sur la création d'entreprise",
+        "communes": [
+            "Marseille"
+        ],
+        "since": null,
+        "until": null,
+        "radius_km": null
+    },
+    "latency_ms": 2517
+}
