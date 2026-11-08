@@ -24,10 +24,23 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     SETUPTOOLS_SCM_PRETEND_VERSION="${VERSION#v}" uv sync --locked --no-dev --no-editable
 
 FROM python:3.11-slim
-RUN useradd --create-home --uid 10001 app
+# Correctifs de sécurité Debian publiés après l'image de base (scan Trivy de la release),
+# et retrait de setuptools/wheel du Python système (inutiles : l'appli tourne dans le venv).
+RUN apt-get update \
+    && apt-get upgrade -y --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/* \
+    && python -m pip uninstall -y -q setuptools wheel \
+    && useradd --create-home --uid 10001 app \
+    && install -d -o app -g app /app/cache /app/data
 COPY --from=builder --chown=app:app /app/.venv /app/.venv
+# /app appartient à root : l'utilisateur app n'écrit que dans deux dossiers.
+#   /app/data  : index régional et données collectées, à monter en volume pour les garder ;
+#   /app/cache : cache disque (diskcache), jetable. CACHE_URL=redis://... pour Valkey.
 ENV PATH="/app/.venv/bin:$PATH" \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    CACHE_URL="disk://?directory=/app/cache&shards=4" \
+    INDEX_DIR="/app/data/index"
+VOLUME ["/app/data", "/app/cache"]
 USER app
 WORKDIR /app
 EXPOSE 8000
