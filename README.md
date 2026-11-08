@@ -92,8 +92,9 @@ uv run python scripts/build_index.py --skip-collect  # réindexe data/raw/events
 Le manifeste note le modèle d'embeddings (un index construit avec un autre modèle est
 refusé au chargement) et la date de synchronisation : l'index est valide
 `INDEX_TTL_HOURS` heures (24 par défaut), puis l'API le resynchronise en tâche de fond.
-Les embeddings sont mis en cache (`data/cache/`) : une reconstruction quotidienne ne
-paie que les passages nouveaux ou modifiés. Le filtrage par commune et par période se
+Les embeddings sont mis en cache dans **Valkey** (`docker compose up -d valkey`, puis
+`CACHE_URL=redis://localhost:6379/0` dans `.env`) : une reconstruction quotidienne ne paie
+que les passages nouveaux ou modifiés. Sans `CACHE_URL`, cache en mémoire du processus. Le filtrage par commune et par période se
 fait au retrieval, sur les métadonnées des passages, avec élargissement par rayons
 (5, 10, 20, 40 km) quand la commune demandée n'a aucun résultat.
 
@@ -151,7 +152,8 @@ curl -s http://127.0.0.1:8000/rebuild -H "Authorization: Bearer $REBUILD_TOKEN"
 
 Avec Docker : l'image publiée à chaque release **embarque l'index régional** (construit
 par la release) ; le conteneur est `healthy` dès que l'API répond et que l'index est
-chargé. Démo en une commande (volumes pour l'index resynchronisé, la base et le cache) :
+chargé. Démo en une commande : l'API et un **Valkey** (cache persistant), avec des volumes pour
+l'index resynchronisé, la base et le cache :
 
 ```bash
 docker compose up                   # compose.yaml, lit .env ; LLM_PROFILE=ci par défaut

@@ -215,9 +215,6 @@ wheels = [
 ]
 
 [package.optional-dependencies]
-diskcache = [
-    { name = "diskcache" },
-]
 redis = [
     { name = "redis" },
 ]
@@ -336,15 +333,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/5a/df/7f077fb2e71b1d73fe8285be7c6ba43dc085f9eaa2384d4e8e55560073a3/coverage-7.17.2-cp311-cp311-win_amd64.whl", hash = "sha256:51c6a60e63ea993113ea5cd24a401cc2faddc54aa7acfddaffa5d3b8c0161b9d", size = 230202, upload-time = "2026-11-04T19:49:46.548Z" },
     { url = "https://files.pythonhosted.org/packages/90/56/89dcd5907d0cc04b07746e62e1cb896c0f694e5af40aa0c980458825c6c5/coverage-7.17.2-cp311-cp311-win_arm64.whl", hash = "sha256:b08ee3ef53e80e5a50c68b3d9764363e373acba540e1b58daee0a9a7f23fdfb2", size = 230110, upload-time = "2026-11-04T19:49:48.005Z" },
     { url = "https://files.pythonhosted.org/packages/da/91/1805cc144497d76a436f66a21fa57492bee7ed1257826fb992f03b9b2b6f/coverage-7.17.2-py3-none-any.whl", hash = "sha256:e674027ceb6bfd959f1bb035000fd20fa8b717dc6765adaaf8bca347822c8c7d", size = 219280, upload-time = "2026-11-04T19:52:32.726Z" },
-]
-
-[[package]]
-name = "diskcache"
-version = "5.6.3"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/3f/21/1c1ffc1a039ddcc459db43cc108658f32c57d271d7289a2794e401d0fdb6/diskcache-5.6.3.tar.gz", hash = "sha256:2c3a3fa2743d8535d832ec61c2054a1641f41775aa7c556758a109941e33e4fc", size = 67916, upload-time = "2023-08-31T06:12:00.316Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/3f/27/4570e78fc0bf5ea0ca45eb1de3818a23787af9b390c0b0a0033a1b8236f9/diskcache-5.6.3-py3-none-any.whl", hash = "sha256:5e31b2d5fbad117cc363ebaf6b689474db18a1f6438bc82358b024abd4c2ca19", size = 45550, upload-time = "2023-08-31T06:11:58.822Z" },
 ]
 
 [[package]]
@@ -1000,7 +988,7 @@ wheels = [
 name = "puls-events-rag"
 source = { editable = "." }
 dependencies = [
-    { name = "cashews", extra = ["diskcache", "redis"] },
+    { name = "cashews", extra = ["redis"] },
     { name = "faiss-cpu" },
     { name = "fastapi" },
     { name = "httpx" },
@@ -1031,7 +1019,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cashews", extras = ["diskcache", "redis"], specifier = ">=7.6.0" },
+    { name = "cashews", extras = ["redis"], specifier = ">=7.6.0" },
     { name = "faiss-cpu", specifier = ">=1.15.1" },
     { name = "fastapi", specifier = ">=0.162.1" },
     { name = "httpx", specifier = ">=0.28.1" },

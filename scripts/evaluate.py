@@ -183,7 +183,7 @@ def main() -> int:
         )
     args = parser.parse_args()
     load_dotenv()
-    setup_cache(os.getenv("CACHE_URL") or "disk://?directory=./data/cache&shards=4")
+    setup_cache()  # CACHE_URL (Valkey) sinon mémoire
     return asyncio.run(run(args))
 
 
