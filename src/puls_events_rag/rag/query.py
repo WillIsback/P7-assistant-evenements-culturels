@@ -27,9 +27,12 @@ PARSER_PROMPT = ChatPromptTemplate.from_messages(
             "system",
             "Tu transformes une question sur des événements de la métropole Aix-Marseille-"
             "Provence en requête de recherche. Nous sommes le {today} ({weekday}).\n"
-            "- query : le thème ou le type d'événement recherché, sans la ville ni les dates "
-            "(reprends la question si rien d'autre) ;\n"
-            "- communes : les communes citées (noms officiels), liste vide si aucune ;\n"
+            "- query : une courte phrase EN FRANÇAIS décrivant ce que la personne cherche, "
+            "sans la ville ni les dates (ex. « atelier pour refaire son CV », « forum de "
+            "recrutement ») ; traduis si la question est dans une autre langue ; chaîne vide "
+            "si la question ne précise aucun thème (« des événements à Aix ? », « qu'est-ce "
+            "qu'il y a ? ») ;\n"
+            "- communes : tous les lieux cités, même hors de la métropole, liste vide si aucun ;\n"
             "- since / until : la période demandée en dates ISO (AAAA-MM-JJ), null si la "
             "question n'en précise pas. « les 15 prochains jours » : since = aujourd'hui, "
             "until = aujourd'hui + 15 jours.",
@@ -44,10 +47,21 @@ WEEKDAYS = ("lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanc
 class SearchQuery(BaseModel):
     """Requête de recherche extraite d'une question."""
 
-    query: str = Field(description="thème ou type d'événement recherché")
+    query: str = Field(
+        default="", description="thème recherché en une courte phrase, vide si aucun"
+    )
     communes: list[str] = Field(default_factory=list, description="communes citées")
     since: date | None = Field(default=None, description="début de la période (inclus)")
     until: date | None = Field(default=None, description="fin de la période (incluse)")
+
+    @property
+    def has_theme(self) -> bool:
+        return bool(self.query.strip())
+
+    @property
+    def outside_communes(self) -> list[str]:
+        """Lieux cités hors du référentiel de la métropole (non couverts)."""
+        return [name for name in self.communes if resolve_commune(name) is None]
 
     def to_filter(self) -> EventFilter:
         """Filtre de l'index : communes du référentiel, période en UTC (jours entiers)."""
@@ -84,7 +98,7 @@ class LLMQueryParser:
         except Exception as exc:  # LLM indisponible ou hors contrat : on dégrade
             logger.warning("Extraction de la requête impossible (%s) : repli", exc)
             return fallback_query(question)
-        if not isinstance(parsed, SearchQuery) or not parsed.query.strip():
+        if not isinstance(parsed, SearchQuery):
             return fallback_query(question)
         # Le LLM peut oublier une commune citée : on complète par la détection regex.
         communes = list(dict.fromkeys([*parsed.communes, *match_cities(question)]))

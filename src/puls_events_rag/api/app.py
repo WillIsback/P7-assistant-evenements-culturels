@@ -13,20 +13,41 @@ from puls_events_rag.api.rag_routes import index_status
 from puls_events_rag.api.rag_routes import router as rag_router
 from puls_events_rag.api.schemas import HealthResponse
 from puls_events_rag.api.services import Services, build_services
+from puls_events_rag.auth.router import router as auth_router
+from puls_events_rag.chat.router import router as chat_router
+from puls_events_rag.chat.setup import build_chat, open_checkpointer
 from puls_events_rag.core.providers.openai_api import build_client, cached_embeddings
+from puls_events_rag.database.sql import create_db_and_tables
+from puls_events_rag.database.users import router as users_router
 
 logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Charge l'index régional et le LLM une seule fois, au démarrage."""
-    embeddings = cached_embeddings()
-    app.state.services = build_services(
-        embeddings=embeddings, model=embeddings.model, llm=build_client()
-    )
-    yield
-    await app.state.services.manager.stop()
+    """Prépare la base, puis charge l'index régional et le LLM une seule fois.
+
+    Sans configuration LLM/embeddings, l'API démarre quand même (auth, /health) ;
+    les routes RAG répondent alors 503.
+    """
+    create_db_and_tables()
+    app.state.chat = None
+    try:
+        embeddings = cached_embeddings()
+        app.state.services = build_services(
+            embeddings=embeddings, model=embeddings.model, llm=build_client()
+        )
+    except RuntimeError as exc:
+        logger.error("Services RAG non initialisés : %s", exc)
+        app.state.services = None
+    services: Services | None = app.state.services
+    if services is None:
+        yield
+        return
+    async with open_checkpointer() as checkpointer:
+        app.state.chat = build_chat(services, checkpointer)
+        yield
+    await services.manager.stop()
 
 
 app = FastAPI(
@@ -37,7 +58,10 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.include_router(auth_router)
+app.include_router(users_router)
 app.include_router(rag_router)
+app.include_router(chat_router)
 
 
 @app.get("/health", tags=["ops"], response_model=HealthResponse, response_model_exclude_none=True)

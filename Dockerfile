@@ -34,10 +34,12 @@ RUN apt-get update \
     && install -d -o app -g app /app/cache /app/data
 COPY --from=builder --chown=app:app /app/.venv /app/.venv
 # /app appartient à root : l'utilisateur app n'écrit que dans deux dossiers.
-#   /app/data  : index régional et données collectées, à monter en volume pour les garder ;
+#   /app/data  : index régional, données collectées et base SQLite (comptes, sessions de
+#                chat), à monter en volume pour les garder ;
 #   /app/cache : cache disque (diskcache), jetable. CACHE_URL=redis://... pour Valkey.
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
+    DATABASE_URL="sqlite:///./data/database.db" \
     CACHE_URL="disk://?directory=/app/cache&shards=4" \
     INDEX_DIR="/app/data/index"
 VOLUME ["/app/data", "/app/cache"]

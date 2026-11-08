@@ -13,7 +13,7 @@ from langchain_core.language_models.chat_models import BaseChatModel
 
 from puls_events_rag.core.index import RegionalIndex
 from puls_events_rag.core.sync import IndexManager, IndexSettings, sync_index
-from puls_events_rag.rag.chain import RagChain
+from puls_events_rag.rag.chain import DEFAULT_MAX_DISTANCE, RagChain
 from puls_events_rag.rag.query import LLMQueryParser, QueryParser
 
 logger = logging.getLogger(__name__)
@@ -25,6 +25,11 @@ class Services:
     llm: BaseChatModel
     parser: QueryParser
     llm_profile: str
+
+    @property
+    def chain_max_distance(self) -> float:
+        """Seuil de pertinence partagé par /ask et les outils du chat."""
+        return float(os.getenv("RAG_MAX_DISTANCE") or DEFAULT_MAX_DISTANCE)
 
     def chain(self, index: RegionalIndex) -> RagChain:
         """Chaîne sur l'index courant (léger : prompt | llm, index déjà chargé)."""
