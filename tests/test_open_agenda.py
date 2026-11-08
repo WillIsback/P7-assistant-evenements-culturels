@@ -232,3 +232,53 @@ def test_find_events_rien_dans_la_zone() -> None:
 
     assert events == []
     assert len(requests) == 5  # commune + 4 rayons
+
+
+def _pages(client: OpenAgendaClient) -> list[list[dict[str, object]]]:
+    async def run() -> list[list[dict[str, object]]]:
+        return [page async for page in client.iter_events(since=datetime(2026, 1, 1, tzinfo=UTC))]
+
+    return asyncio.run(run())
+
+
+def test_pagination_suit_le_curseur() -> None:
+    pages = [
+        {"events": [{"uid": 1}, {"uid": 2}], "after": ["a", "1"]},
+        {"events": [{"uid": 3}, {"uid": 4}], "after": ["b", "2"]},
+        {"events": [{"uid": 5}]},
+    ]
+    requests: list[httpx.Request] = []
+    client = _client(lambda request: httpx.Response(200, json=pages[len(requests) - 1]), requests)
+
+    result = _pages(client)
+
+    assert [len(page) for page in result] == [2, 2, 1]
+    assert requests[0].url.params.get_list("after[]") == []
+    assert requests[1].url.params.get_list("after[]") == ["a", "1"]
+    assert requests[2].url.params.get_list("after[]") == ["b", "2"]
+    assert requests[0].url.params["size"] == "300"
+    assert requests[0].url.params["detailed"] == "1"
+
+
+def test_pagination_reessaie_puis_reussit(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("puls_events_rag.core.providers.open_agenda.asyncio.sleep", _no_sleep)
+    requests: list[httpx.Request] = []
+    responses = [httpx.Response(429), httpx.Response(200, json={"events": [{"uid": 1}]})]
+    client = _client(lambda request: responses[len(requests) - 1], requests)
+
+    assert _pages(client) == [[{"uid": 1}]]
+    assert len(requests) == 2
+
+
+def test_pagination_reessaie_puis_echoue(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("puls_events_rag.core.providers.open_agenda.asyncio.sleep", _no_sleep)
+    requests: list[httpx.Request] = []
+    client = _client(lambda request: httpx.Response(503), requests)
+
+    with pytest.raises(OpenAgendaError):
+        _pages(client)
+    assert len(requests) == 4
+
+
+async def _no_sleep(_: float) -> None:
+    return None

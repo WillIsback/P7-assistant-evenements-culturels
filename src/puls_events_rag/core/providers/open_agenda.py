@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
-from collections.abc import Sequence
+from collections.abc import AsyncIterator, Sequence
 from datetime import UTC, date, datetime, timedelta
 from types import TracebackType
 from typing import Any, Self
@@ -23,6 +24,7 @@ BASE_URL = "https://api.openagenda.com/v2"
 DEFAULT_AGENDA_UID = "21769447"
 DEFAULT_LOOKBACK_DAYS = 365
 MAX_PAGE_SIZE = 300
+RETRY_STATUSES = frozenset({429, 500, 502, 503, 504})
 
 
 class OpenAgendaError(RuntimeError):
@@ -176,6 +178,72 @@ class OpenAgendaClient:
         logger.info("%d événement(s) renvoyé(s) sur %s", len(events), payload.get("total"))
         await cache_set(key, events, TTL_OPEN_AGENDA)
         return events
+
+    async def iter_events(
+        self,
+        *,
+        since: date | datetime | None = None,
+        detailed: bool = True,
+        page_size: int = MAX_PAGE_SIZE,
+        max_retries: int = 3,
+    ) -> AsyncIterator[list[dict[str, Any]]]:
+        """Parcourt **tout** l'agenda, page par page (collecte de l'index régional).
+
+        Pagination par curseur : chaque réponse fournit ``after``, renvoyé tel
+        quel (``after[]``) pour obtenir la page suivante ; la collecte s'arrête
+        sur une page vide ou sans curseur. Sans ``since``, fenêtre des 365
+        derniers jours. Les erreurs transitoires (429, 5xx, réseau) sont
+        réessayées ``max_retries`` fois avec une attente exponentielle. Pas de
+        cache : la fraîcheur est gérée par l'index lui-même.
+        """
+        if not 1 <= page_size <= MAX_PAGE_SIZE:
+            raise ValueError(f"page_size doit être compris entre 1 et {MAX_PAGE_SIZE}")
+        if since is None:
+            today = datetime.now(tz=UTC).replace(hour=0, minute=0, second=0, microsecond=0)
+            since = today - timedelta(days=DEFAULT_LOOKBACK_DAYS)
+
+        base: dict[str, str | list[str]] = {
+            "timings[gte]": _to_iso(since),
+            "size": str(page_size),
+        }
+        if detailed:
+            base["detailed"] = "1"
+        after: list[str] = []
+        while True:
+            params = {**base, "after[]": after} if after else dict(base)
+            payload = await self._get_with_retry(params, max_retries)
+            events = payload.get("events")
+            if not isinstance(events, list):
+                raise OpenAgendaError("Réponse Open Agenda inattendue : clé 'events' absente")
+            if not events:
+                return
+            yield events
+            cursor = payload.get("after")
+            if not isinstance(cursor, list) or not cursor:
+                return
+            after = [str(value) for value in cursor]
+
+    async def _get_with_retry(
+        self, params: dict[str, str | list[str]], max_retries: int
+    ) -> dict[str, Any]:
+        for attempt in range(max_retries + 1):
+            try:
+                response = await self._client.get(self.events_url, params=params)
+            except httpx.TransportError as exc:
+                error: Exception = exc
+            else:
+                if response.status_code not in RETRY_STATUSES:
+                    try:
+                        response.raise_for_status()
+                    except httpx.HTTPError as exc:
+                        raise OpenAgendaError(f"Échec de la requête Open Agenda : {exc}") from exc
+                    return self._parse_json(response)
+                error = OpenAgendaError(f"Open Agenda indisponible (HTTP {response.status_code})")
+            if attempt < max_retries:
+                delay = 2.0**attempt
+                logger.warning("Open Agenda : %s, nouvel essai dans %.0f s", error, delay)
+                await asyncio.sleep(delay)
+        raise OpenAgendaError(f"Échec de la collecte Open Agenda : {error}") from error
 
     @staticmethod
     def _parse_json(response: httpx.Response) -> dict[str, Any]:
