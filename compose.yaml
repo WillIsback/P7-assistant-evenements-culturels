@@ -1,0 +1,18 @@
+# Démo locale en une commande : docker compose up
+# L'image publiée embarque l'index régional ; les volumes gardent l'index resynchronisé,
+# la base (comptes, conversations) et le cache d'embeddings entre deux lancements.
+services:
+  api:
+    image: ghcr.io/willisback/p7-assistant-evenements-culturels:${PULS_VERSION:-latest}
+    env_file: .env
+    environment:
+      LLM_PROFILE: ${LLM_PROFILE:-ci}
+    ports:
+      - "8000:8000"
+    volumes:
+      - puls-data:/app/data
+      - puls-cache:/app/cache
+
+volumes:
+  puls-data:
+  puls-cache:

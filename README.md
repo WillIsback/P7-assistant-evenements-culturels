@@ -142,11 +142,20 @@ curl -s -X POST http://127.0.0.1:8000/rebuild -H "Authorization: Bearer $REBUILD
 curl -s http://127.0.0.1:8000/rebuild -H "Authorization: Bearer $REBUILD_TOKEN"
 ```
 
-Avec Docker :
+Avec Docker : l'image publiée à chaque release **embarque l'index régional** (construit
+par la release) ; le conteneur est `healthy` dès que l'API répond et que l'index est
+chargé. Démo en une commande (volumes pour l'index resynchronisé, la base et le cache) :
 
 ```bash
+docker compose up                   # compose.yaml, lit .env ; LLM_PROFILE=ci par défaut
+# ou
 docker run --rm -p 8000:8000 --env-file .env ghcr.io/willisback/p7-assistant-evenements-culturels:latest
+uv run python scripts/api_test.py   # vérifie le conteneur
 ```
+
+L'index embarqué a plus de 24 h dès le lendemain de la release : il sert immédiatement,
+pendant qu'une resynchronisation tourne en fond (clés Open Agenda et OpenRouter dans
+`.env`). Performance mesurée : `docs/evaluation/performance.md` (`scripts/perf.py`).
 
 ### Chat multi-tour (`/chat`)
 

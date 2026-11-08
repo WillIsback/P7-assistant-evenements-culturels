@@ -122,12 +122,64 @@ jobs:
           fi
           echo "✅ $VERSION > $LAST_TAG"
 
+  # Index régional construit UNE fois par release, réutilisé par l'évaluation et
+  # embarqué dans l'image. Cache d'embeddings conservé entre releases : seuls les
+  # passages nouveaux sont vectorisés. Sans OPENAGENDA_API_KEY : index vide (l'image
+  # se synchronise alors au premier démarrage).
+  index:
+    name: Index régional (collecte + embeddings)
+    needs: [detect, gate-version-consistency]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Installer uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.13.7"
+
+      - name: Cache des embeddings
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: data/cache
+          key: embeddings-${{ github.run_id }}
+          restore-keys: embeddings-
+
+      - name: Construction de l'index
+        shell: bash
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          OPENAGENDA_API_KEY: ${{ secrets.OPENAGENDA_API_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p data/index
+          touch data/index/.keep  # artefact jamais vide, même sans index
+          if [ -z "${OPENAGENDA_API_KEY:-}" ] || [ -z "${OPENROUTER_API_KEY:-}" ]; then
+            echo "::warning::Secrets Open Agenda / OpenRouter absents : image sans index embarqué."
+            exit 0
+          fi
+          uv sync --locked --no-dev
+          uv run --no-sync python scripts/build_index.py
+
+      - name: Conserver l'index
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: regional-index
+          path: data/index/
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 7
+
   # Gate qualité : seule étape qui appelle un vrai LLM (OpenRouter, sans réflexion).
   # Contrat : scripts/evaluate.py écrit reports/evaluation.md et sort en erreur
   # sous les seuils. Tant que le script n'existe pas, la gate est neutre.
   evaluate:
     name: gate-evaluation-rag
-    needs: [detect, gate-version-consistency]
+    needs: [detect, gate-version-consistency, index]
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -140,6 +192,12 @@ jobs:
         uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: "0.13.7"
+
+      - name: Récupérer l'index régional
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: regional-index
+          path: data/index
 
       - name: Évaluation sur le jeu de test annoté
         shell: bash
@@ -168,7 +226,7 @@ jobs:
 
   image:
     name: Image Docker (build unique, scan, publication)
-    needs: [detect, evaluate]
+    needs: [detect, evaluate, index]
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
@@ -190,6 +248,12 @@ jobs:
         env:
           REPO: ${{ github.repository }}
         run: echo "image=ghcr.io/${REPO,,}" >> "$GITHUB_OUTPUT"
+
+      - name: Récupérer l'index régional (embarqué dans l'image)
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: regional-index
+          path: data/index
 
       - name: Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1

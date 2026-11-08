@@ -33,6 +33,8 @@ RUN apt-get update \
     && useradd --create-home --uid 10001 app \
     && install -d -o app -g app /app/cache /app/data
 COPY --from=builder --chown=app:app /app/.venv /app/.venv
+# Index régional construit par la release (vide en CI de PR : synchro au démarrage).
+COPY --chown=app:app data/index/ /app/data/index/
 # /app appartient à root : l'utilisateur app n'écrit que dans deux dossiers.
 #   /app/data  : index régional, données collectées et base SQLite (comptes, sessions de
 #                chat), à monter en volume pour les garder ;
@@ -46,6 +48,7 @@ VOLUME ["/app/data", "/app/cache"]
 USER app
 WORKDIR /app
 EXPOSE 8000
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
-    CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+# Sain quand l'API répond ET que l'index régional est chargé.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s \
+    CMD ["python", "-c", "import json, urllib.request; h = json.load(urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)); raise SystemExit(0 if h.get('index', {}).get('loaded') else 1)"]
 CMD ["uvicorn", "puls_events_rag.api.app:app", "--host", "0.0.0.0", "--port", "8000"]
