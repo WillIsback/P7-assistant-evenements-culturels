@@ -9,9 +9,11 @@ Skill `semver-batch-workflow` (https://github.com/WillIsback/agent-skills). Rés
 
 - Une issue typée par changement (`.github/ISSUE_TEMPLATE`).
 - Lots de version traités dans l'ordre **patch → minor → major**.
-- Branche de lot `<type>/<version>` (ex. `fix/0.2.1`) ; une sous-branche par issue
-  `<type>/<version>-<tâche>`, fusionnée dans la branche de lot par
-  `<type>: merge <type>/<version>-<tâche> (#N)`.
+- Branche de version `<type>/<version>` (ex. `feat/0.2.0`) ; les issues qui s'imbriquent
+  sont regroupées dans une **sous-branche de lot** `<type>/<version>-<lot>`
+  (ex. `feat/0.1.0-donnees` pour #4, #5, #6), fusionnée dans la branche de version par
+  `<type>: merge <type>/<version>-<lot> (#N, #M)`. Le lot de chaque issue est indiqué
+  dans sa section « Lot ».
 - **Jamais de commit ni de merge direct sur `main`** : une PR par lot, avec
   `Closes #N` pour chaque issue.
 - Conventional Commits ; `feat` → minor, `fix`/`perf` → patch, `!` → major.

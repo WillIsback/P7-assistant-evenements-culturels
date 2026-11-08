@@ -131,6 +131,12 @@ def build_embeddings() -> OpenAIEmbeddings:
     )
 
 
+def cached_embeddings() -> CachedEmbeddings:
+    """Embeddings OpenRouter derrière le cache (seuls les textes nouveaux sont payés)."""
+    embeddings = build_embeddings()
+    return CachedEmbeddings(embeddings, model=embeddings.model)
+
+
 class LangOpenAI:
     """Façade LLM du projet ; chat et embeddings sont injectables pour les tests."""
 
@@ -151,8 +157,7 @@ class LangOpenAI:
         seule l'extraction de mots-clés est utilisée.
         """
         if self._embeddings is None:
-            embeddings = build_embeddings()
-            self._embeddings = CachedEmbeddings(embeddings, model=embeddings.model)
+            self._embeddings = cached_embeddings()
         return self._embeddings
 
     @property
