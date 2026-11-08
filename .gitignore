@@ -31,3 +31,6 @@ reports/
 
 # Outillage local
 .codegraph/
+
+# Captures Playwright locales
+.playwright-mcp/

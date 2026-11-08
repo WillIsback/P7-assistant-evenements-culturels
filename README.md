@@ -148,6 +148,40 @@ Avec Docker :
 docker run --rm -p 8000:8000 --env-file .env ghcr.io/willisback/p7-assistant-evenements-culturels:latest
 ```
 
+### Chat multi-tour (`/chat`)
+
+Conversations authentifiées (JWT, voir l'utilisateur de démonstration ci-dessous) :
+une session appartient à un utilisateur, l'historique est conservé par le checkpointer
+LangGraph (`CHECKPOINT_DB`, défaut `data/checkpoints.db`) et survit au redémarrage.
+
+| Méthode | Route | Effet |
+|---|---|---|
+| `POST` | `/chat/sessions` | ouvre une conversation (contrôle la fraîcheur de l'index) |
+| `GET` | `/chat/sessions` | mes conversations, la plus récente d'abord |
+| `GET` | `/chat/sessions/{id}` | historique (messages, outils appelés, sources) |
+| `POST` | `/chat/sessions/{id}/messages` | message → réponse en **streaming SSE** |
+| `DELETE` | `/chat/sessions/{id}` | supprime la conversation et son historique |
+
+Le flux SSE émet `token` (texte au fil de l'eau), `tool_start` / `tool_end` (outils
+`search_events`, `list_event_themes` de l'agent LangChain), `sources`, puis `done` (ou
+`error`). La session d'un autre utilisateur répond `404` ; un second message pendant
+une réponse en cours, `409`.
+
+```bash
+TOKEN=$(curl -s -X POST http://127.0.0.1:8000/auth/token -d 'username=demo&password=demo-puls-2026' | jq -r .access_token)
+SID=$(curl -s -X POST http://127.0.0.1:8000/chat/sessions -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' -d '{}' | jq -r .session_id)
+curl -N -X POST http://127.0.0.1:8000/chat/sessions/$SID/messages -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' -d '{"content": "Des événements à Aix dans les 15 prochains jours ?"}'
+```
+
+**Fenêtre de chat de développement (Gradio)** : elle ne passe que par l'API HTTP, pour
+valider l'aller-retour front ↔ back (dépendance `dev`, absente de l'image Docker).
+
+```bash
+uv run python scripts/chat_ui.py    # http://127.0.0.1:7860 (API_URL, GRADIO_SERVER_PORT)
+```
+
 ### Utilisateur de démonstration
 
 Les routes protégées demandent un jeton JWT (`SECRET_KEY` doit être renseignée dans
