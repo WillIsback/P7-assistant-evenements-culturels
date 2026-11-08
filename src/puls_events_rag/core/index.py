@@ -275,7 +275,11 @@ class RegionalIndex:
             yield self._document(self._store.index_to_docstore_id[position])
 
     async def _ranked(
-        self, query: str, keep: Callable[[dict[str, Any]], bool], k: int
+        self,
+        query: str,
+        keep: Callable[[dict[str, Any]], bool],
+        k: int,
+        max_distance: float | None = None,
     ) -> list[tuple[Document, float]]:
         total = int(self._store.index.ntotal)
         vector = await self._store.embeddings.aembed_query(query)  # type: ignore[union-attr]
@@ -284,6 +288,8 @@ class RegionalIndex:
         )
         best: dict[Any, tuple[Document, float]] = {}
         for document, score in hits:
+            if max_distance is not None and score > max_distance:
+                break  # résultats triés : tous les suivants sont moins pertinents
             best.setdefault(document.metadata["uid"], (document, float(score)))
             if len(best) == k:
                 break
@@ -296,12 +302,15 @@ class RegionalIndex:
         k: int = DEFAULT_TOP_K,
         where: EventFilter = NO_FILTER,
         expand: bool = True,
+        max_distance: float | None = None,
     ) -> SearchResult:
         """Au plus ``k`` événements distincts, du plus au moins pertinent.
 
         Si les communes demandées n'ont aucun résultat et que ``expand`` est vrai,
         la zone est élargie par rayons successifs (:data:`FALLBACK_RADII_KM`) autour
         de leur centre ; chaque événement porte alors ``distance_km``.
+        ``max_distance`` écarte les passages trop éloignés de la requête (distance
+        L2 des embeddings) : « rien de pertinent à Aix » déclenche aussi l'élargissement.
         """
         if not query.strip() or k < 1:
             return SearchResult([])
@@ -312,7 +321,7 @@ class RegionalIndex:
                 metadata, where
             )
 
-        hits = await self._ranked(query, in_communes, k)
+        hits = await self._ranked(query, in_communes, k, max_distance)
         centers = city_centers(list(where.communes))
         if hits or not communes or not expand or not centers:
             return SearchResult([RetrievedEvent(d.metadata["uid"], s, d) for d, s in hits])
@@ -323,7 +332,7 @@ class RegionalIndex:
                 distance = _distance_km(metadata, centers)
                 return distance is not None and distance <= radius and _in_period(metadata, where)
 
-            hits = await self._ranked(query, nearby, k)
+            hits = await self._ranked(query, nearby, k, max_distance)
             if hits:
                 logger.info("Aucun résultat à %s : élargissement à %g km", communes, radius)
                 events = [

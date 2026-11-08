@@ -206,3 +206,20 @@ def test_facettes() -> None:
 
     assert facets.event_count == 2
     assert facets.top_keywords[0] == ("Emploi", 2)
+
+
+def test_seuil_de_pertinence_declenche_l_elargissement() -> None:
+    # À Aix, seulement un concert (hors sujet) ; un atelier pertinent à ~6 km.
+    events = [
+        _event(1, "Concert", commune="Aix-en-Provence", lat=AIX.lat, lng=AIX.lng),
+        _event(2, "Atelier", commune="Venelles", lat=43.58, lng=5.44),
+    ]
+    index = _build(events)
+    where = EventFilter(communes=("Aix-en-Provence",))
+
+    without = asyncio.run(index.search("atelier", k=5, where=where))
+    strict = asyncio.run(index.search("atelier", k=5, where=where, max_distance=0.5))
+
+    assert [event.uid for event in without.events] == [1]
+    assert [event.uid for event in strict.events] == [2]
+    assert strict.radius_km == 10.0
