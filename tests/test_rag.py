@@ -11,7 +11,7 @@ from langchain_core.messages import BaseMessage
 from pydantic import Field
 
 from puls_events_rag.core.index import RegionalIndex
-from puls_events_rag.rag.chain import NO_RESULT, RagChain
+from puls_events_rag.rag.chain import CLARIFY, NO_RESULT, RagChain
 from puls_events_rag.rag.query import LLMQueryParser, SearchQuery, fallback_query
 from tests.test_index import AIX, EMBEDDINGS, MODEL, _event
 
@@ -135,3 +135,29 @@ def test_parseur_llm_hors_contrat_se_replie() -> None:
     query = asyncio.run(parser("Un concert à Marseille", today=TODAY))
 
     assert query == fallback_query("Un concert à Marseille")
+
+
+def test_sans_theme_pas_de_seuil() -> None:
+    answer, _ = _ask(SearchQuery(query="", communes=["Aix-en-Provence"]))
+
+    assert [source.uid for source in answer.sources] == ["1"]
+
+
+def test_lieu_hors_metropole_signale() -> None:
+    _, llm = _ask(SearchQuery(query="atelier immersion", communes=["Lyon"]))
+
+    assert "Lyon est hors de la métropole" in llm.received[0][0].content
+
+
+def test_sans_theme_ni_filtre_demande_de_preciser() -> None:
+    answer, llm = _ask(SearchQuery(query=""), question="Quel temps fera-t-il demain ?")
+
+    assert answer.answer == CLARIFY
+    assert answer.sources == []
+    assert llm.received == []
+
+
+def test_aucun_resultat_hors_metropole() -> None:
+    answer, _ = _ask(SearchQuery(query="football", communes=["Lyon"]))
+
+    assert answer.answer.startswith("Lyon est hors de la métropole")

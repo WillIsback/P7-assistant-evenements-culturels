@@ -29,6 +29,10 @@ NO_RESULT = (
     "Je n'ai trouvé aucun événement correspondant dans l'agenda de la métropole "
     "Aix-Marseille-Provence. Essayez un autre thème, une autre commune ou une autre période."
 )
+CLARIFY = (
+    "Je recommande des événements de la métropole Aix-Marseille-Provence. Précisez ce qui "
+    "vous intéresse : un thème (atelier, forum, concert…), une commune ou une période."
+)
 
 ANSWER_PROMPT = ChatPromptTemplate.from_messages(
     [
@@ -95,7 +99,23 @@ def format_context(events: list[RetrievedEvent]) -> str:
     return "\n\n".join(blocks)
 
 
+def no_result_message(query: SearchQuery) -> str:
+    outside = query.outside_communes
+    if outside:
+        return (
+            f"{', '.join(outside)} est hors de la métropole Aix-Marseille-Provence, la seule "
+            "zone couverte par l'agenda. " + NO_RESULT
+        )
+    return NO_RESULT
+
+
 def scope_note(query: SearchQuery, result: SearchResult) -> str:
+    outside = query.outside_communes
+    if outside:
+        return (
+            f"{', '.join(outside)} est hors de la métropole Aix-Marseille-Provence, seule zone "
+            "couverte : commence par le dire ; les événements ci-dessous sont dans la métropole."
+        )
     if result.radius_km is not None and query.communes:
         return (
             f"Aucun événement pertinent à {', '.join(query.communes)} : commence par le dire, "
@@ -131,8 +151,19 @@ class RagChain:
         started = time.perf_counter()
         today = today or datetime.now(tz=UTC).date()
         query = await self.parser(question, today=today)
+        where = query.to_filter()
+        has_filter = bool(where.communes or where.since or where.until)
+        if not query.has_theme and not has_filter and not query.outside_communes:
+            # Ni thème, ni commune, ni période (« quel temps fera-t-il ? ») : rien à chercher.
+            latency = int((time.perf_counter() - started) * 1000)
+            return RagAnswer(CLARIFY, [], query, None, latency)
+        # Sans thème mais avec un filtre (« des événements à Aix ? ») : pas de seuil,
+        # seuls commune et période comptent ; la question entière sert de requête.
         result = await self.index.search(
-            query.query, k=k, where=query.to_filter(), max_distance=self.max_distance
+            query.query if query.has_theme else question,
+            k=k,
+            where=where,
+            max_distance=self.max_distance if query.has_theme else None,
         )
         logger.info(
             "RAG : %r → query=%r communes=%s %s→%s : %d événement(s)",
@@ -144,7 +175,7 @@ class RagChain:
             len(result.events),
         )
         if not result.events:
-            answer = NO_RESULT
+            answer = no_result_message(query)
         else:
             answer = await self._answer.ainvoke(
                 {
