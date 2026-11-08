@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from scripts.chat_ui import format_sources, parse_sse
+import pytest
+from scripts.chat_ui import _session_path, format_sources, parse_sse
 
 
 def test_parse_sse_ignore_les_lignes_hors_data() -> None:
@@ -29,3 +30,11 @@ def test_format_sources_avec_lien_et_distance() -> None:
     assert "[Atelier](https://openagenda.com/e/1)" in text
     assert "à 28.1 km" in text
     assert format_sources([]) == ""
+
+
+def test_identifiant_de_session_valide_comme_uuid() -> None:
+    sid = "9c2651b8-2d3d-42a5-bb71-6832edd8d4dd"
+
+    assert _session_path(sid) == f"/chat/sessions/{sid}"
+    with pytest.raises(ValueError):
+        _session_path("../../users/1")

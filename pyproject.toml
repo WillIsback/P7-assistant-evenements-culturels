@@ -34,7 +34,6 @@ dev = [
     "ruff",
     "types-pyyaml",
     "pyyaml",
-    "gradio>=6.31.0",
 ]
 
 [build-system]
@@ -69,6 +68,11 @@ select = ["E", "F", "W", "I", "UP", "B", "SIM", "S", "N", "RUF"]
 python_version = "3.11"
 strict = true
 files = ["src", "tests", "scripts"]
+
+[[tool.mypy.overrides]]
+# Fenêtre de chat de dev : Gradio vit dans l'environnement du script (PEP 723).
+module = ["gradio", "gradio.*"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

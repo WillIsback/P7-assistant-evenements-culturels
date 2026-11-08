@@ -1,16 +1,24 @@
+# /// script
+# requires-python = ">=3.11,<3.12"
+# dependencies = ["gradio>=6.31", "httpx>=0.28"]
+# ///
 """Fenêtre de chat Gradio pour le développement : valide l'aller-retour front ↔ API.
 
 Elle ne passe **que** par l'API HTTP (jamais par l'agent ni la base), comme un vrai
 front. Lancer l'API puis ::
 
-    uv run python scripts/chat_ui.py                  # http://127.0.0.1:7860
-    API_URL=http://127.0.0.1:8001 GRADIO_SERVER_PORT=7861 uv run python scripts/chat_ui.py
+    uv run --script scripts/chat_ui.py                # http://127.0.0.1:7860
+    API_URL=http://127.0.0.1:8001 GRADIO_SERVER_PORT=7861 uv run --script scripts/chat_ui.py
+
+Script autonome (PEP 723) : Gradio s'installe dans un environnement isolé, hors du
+lock du projet et de l'image Docker (Gradio plafonne Pillow à une version vulnérable).
 """
 
 from __future__ import annotations
 
 import json
 import os
+import uuid
 from collections.abc import Iterator
 from typing import Any
 
@@ -22,6 +30,11 @@ TIMEOUT = httpx.Timeout(120.0, connect=5.0)
 DEMO_USER, DEMO_PASSWORD = "demo", "demo-puls-2026"  # compte de démo du README
 
 Messages = list[dict[str, str]]
+
+
+def _session_path(session_id: str) -> str:
+    """Chemin de la session, l'identifiant étant validé comme UUID (pas d'injection d'URL)."""
+    return f"/chat/sessions/{uuid.UUID(str(session_id))}"
 
 
 def _headers(token: str) -> dict[str, str]:
@@ -81,7 +94,7 @@ def load_session(token: str, session_id: str | None) -> Messages:
     if not token or not session_id:
         return []
     response = httpx.get(
-        f"{API_URL}/chat/sessions/{session_id}", headers=_headers(token), timeout=10
+        f"{API_URL}{_session_path(session_id)}", headers=_headers(token), timeout=10
     )
     response.raise_for_status()
     history: Messages = []
@@ -106,7 +119,7 @@ def send(
     yield history, "", ""
     with httpx.stream(
         "POST",
-        f"{API_URL}/chat/sessions/{session_id}/messages",
+        f"{API_URL}{_session_path(session_id)}/messages",
         json={"content": message},
         headers=_headers(token),
         timeout=TIMEOUT,
