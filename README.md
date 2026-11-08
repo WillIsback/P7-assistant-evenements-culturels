@@ -101,7 +101,34 @@ fait au retrieval, sur les métadonnées des passages, avec élargissement par r
 
 ```bash
 uv run uvicorn puls_events_rag.api.app:app --reload
-curl http://127.0.0.1:8000/health
+curl http://127.0.0.1:8000/health      # état, version, profil LLM, index chargé et fraîcheur
+```
+
+Documentation interactive : `http://127.0.0.1:8000/docs`. L'index régional est chargé
+une fois au démarrage (`data/index`, voir ci-dessus) ; s'il a plus de 24 h, il continue
+de servir pendant qu'une resynchronisation tourne en tâche de fond.
+
+**Poser une question** (`POST /ask`) :
+
+```bash
+curl -s -X POST http://127.0.0.1:8000/ask -H 'Content-Type: application/json' \
+  -d '{"question": "Un atelier d'"'"'immersion professionnelle à Aix-en-Provence dans les 15 prochains jours ?", "k": 3}'
+```
+
+La réponse contient `answer` (texte généré à partir des seuls événements retrouvés),
+`sources` (titre, dates, lieu, commune, URL, distance si la zone a été élargie),
+`filters` (thème, communes, période et rayon d'élargissement déduits de la question) et
+`latency_ms`. Codes : `422` question vide ou trop longue (1 000 caractères), `503` tant
+qu'aucun index n'est disponible.
+
+**Reconstruire l'index** (`POST /rebuild`, jeton `REBUILD_TOKEN` de `.env`) : lance la
+collecte et l'indexation en tâche de fond (`202`), `409` si une reconstruction est déjà
+en cours ; `GET /rebuild` donne l'état de l'index. Sans `REBUILD_TOKEN`, la route est
+désactivée (`404`).
+
+```bash
+curl -s -X POST http://127.0.0.1:8000/rebuild -H "Authorization: Bearer $REBUILD_TOKEN"
+curl -s http://127.0.0.1:8000/rebuild -H "Authorization: Bearer $REBUILD_TOKEN"
 ```
 
 Avec Docker :
