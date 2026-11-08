@@ -54,6 +54,17 @@ qui touche la chaîne RAG, la rejouer localement :
 uv run python scripts/evaluate.py --output reports/evaluation.md
 ```
 
+## Évaluation de la chaîne RAG
+
+La gate `gate-evaluation-rag` de la release exécute `scripts/evaluate.py` sur
+`eval/dataset.jsonl` (méthode et seuils : `docs/evaluation/evaluation.md`). Un lot qui
+touche la chaîne RAG la rejoue en local avant sa PR (preflight) :
+
+```bash
+LLM_PROFILE=ci uv run python scripts/evaluate.py --output reports/evaluation.md
+uv run pytest tests/test_scenarios.py -m integration --no-cov
+```
+
 ## Vérifications locales
 
 ```bash

@@ -223,3 +223,22 @@ def test_seuil_de_pertinence_declenche_l_elargissement() -> None:
     assert [event.uid for event in without.events] == [1]
     assert [event.uid for event in strict.events] == [2]
     assert strict.radius_km == 10.0
+
+
+def test_bonus_lexical_pondere_par_la_rarete() -> None:
+    from puls_events_rag.core.index import (
+        LEXICAL_WEIGHT,
+        lexical_bonus,
+        lexical_overlap,
+        query_terms,
+    )
+
+    terms = query_terms("atelier immersion")
+    idf = {"ateli": 0.1, "immer": 3.0}
+
+    assert lexical_overlap(terms, {"title": "Atelier immersion"}, idf) == 1.0
+    assert lexical_overlap(terms, {"title": "Atelier CV"}, idf) < 0.05
+    assert lexical_overlap(terms, {"title": "Immersion", "keywords": []}, idf) > 0.95
+    assert lexical_overlap([], {"title": "x"}) == 0.0
+    assert lexical_bonus(terms, {"title": "Atelier CV"}, idf) == 0.0
+    assert lexical_bonus(terms, {"title": "Atelier immersion"}, idf) == LEXICAL_WEIGHT

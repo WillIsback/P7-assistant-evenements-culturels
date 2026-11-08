@@ -20,11 +20,10 @@ from puls_events_rag.rag.query import QueryParser, SearchQuery
 logger = logging.getLogger(__name__)
 
 DEFAULT_K = 5
-# Distance L2² mistral-embed de la requête courte déduite par le parseur, mesurée le
-# 2026-11-08 : sujets présents 0,35-0,51 (filtrés par commune/période), hors sujet
-# 0,48-0,65. Le seuil écarte le gros du hors-sujet ; les cas limites (« recette de
-# pizza » 0,48) sont laissés au LLM, qui doit répondre qu'aucun événement ne correspond.
-DEFAULT_MAX_DISTANCE = 0.53
+# Seuil sur la distance L2² mistral-embed de la requête reformulée, après bonus lexical
+# (recherche hybride). Calibré le 2026-11-08 sur le jeu d'évaluation (40 questions) et
+# les 14 scénarios : 0,52 maximise hit rate, refus et exactitude (cf. docs/evaluation).
+DEFAULT_MAX_DISTANCE = 0.52
 NO_RESULT = (
     "Je n'ai trouvé aucun événement correspondant dans l'agenda de la métropole "
     "Aix-Marseille-Provence. Essayez un autre thème, une autre commune ou une autre période."
@@ -74,6 +73,7 @@ class RagAnswer:
     query: SearchQuery
     radius_km: float | None
     latency_ms: int
+    context: str = ""  # passages fournis au LLM (évaluation de la fidélité)
 
 
 def to_source(event: RetrievedEvent) -> Source:
@@ -153,8 +153,11 @@ class RagChain:
         query = await self.parser(question, today=today)
         where = query.to_filter()
         has_filter = bool(where.communes or where.since or where.until)
-        if not query.has_theme and not has_filter and not query.outside_communes:
-            # Ni thème, ni commune, ni période (« quel temps fera-t-il ? ») : rien à chercher.
+        if not query.about_events or (
+            not query.has_theme and not has_filter and not query.outside_communes
+        ):
+            # Hors sujet (« quel temps fera-t-il ? »), ou ni thème, ni commune, ni période :
+            # rien à chercher.
             latency = int((time.perf_counter() - started) * 1000)
             return RagAnswer(CLARIFY, [], query, None, latency)
         # Sans thème mais avec un filtre (« des événements à Aix ? ») : pas de seuil,
@@ -174,6 +177,7 @@ class RagChain:
             query.until,
             len(result.events),
         )
+        context = format_context(result.events)
         if not result.events:
             answer = no_result_message(query)
         else:
@@ -181,10 +185,10 @@ class RagChain:
                 {
                     "today": today.isoformat(),
                     "question": question,
-                    "context": format_context(result.events),
+                    "context": context,
                     "scope": scope_note(query, result),
                 }
             )
         latency = int((time.perf_counter() - started) * 1000)
         sources = [to_source(event) for event in result.events]
-        return RagAnswer(answer.strip(), sources, query, result.radius_km, latency)
+        return RagAnswer(answer.strip(), sources, query, result.radius_km, latency, context)
