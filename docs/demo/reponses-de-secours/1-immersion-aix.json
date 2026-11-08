@@ -1,0 +1,35 @@
+{
+    "answer": "Aucun événement pertinent à Aix-en-Provence.\n\nVoici des événements recommandés dans les alentours :\n\n- **Atelier : \"Trouver et préparer son immersion professionnelle\"**\n  *Date : Jeudi 19 novembre, 08h45*\n  *Lieu : Agence MARSEILLE PONT DE VIVAUX, 13010 Marseille*\n  *Distance : 28,1 km*\n\n- **Capsule Immersion Facilitée et POE**\n  *Date : Lundi 16 novembre, 13h45*\n  *Lieu : Salon-de-Provence - Agence SALON DE PROVENCE, 13300 Salon-de-Provence, Salon de Provence*\n  *Distance : 25,9 km*",
+    "sources": [
+        {
+            "uid": "18911420",
+            "title": "Atelier : \"Trouver et préparer son immersion professionnelle\"",
+            "date_range": "Jeudi 19 novembre, 08h45",
+            "location": "Agence MARSEILLE PONT DE VIVAUX, 13010 Marseille",
+            "commune": "Marseille",
+            "url": "https://openagenda.com/francetravail/events/18911420_atelier-trouver-et-preparer-son-immersion-professionnelle-9974567",
+            "distance_km": 28.1,
+            "score": 0.2452
+        },
+        {
+            "uid": "72947320",
+            "title": "Capsule Immersion Facilitée et POE",
+            "date_range": "Lundi 16 novembre, 13h45",
+            "location": "Salon-de-Provence - Agence SALON DE PROVENCE, 13300 Salon-de-Provence, Salon de Provence",
+            "commune": "Salon-de-Provence",
+            "url": "https://openagenda.com/francetravail/events/72947320_capsule-immersion-facilitee-et-poe-8621106",
+            "distance_km": 25.9,
+            "score": 0.4548
+        }
+    ],
+    "filters": {
+        "query": "atelier d'immersion professionnelle",
+        "communes": [
+            "Aix-en-Provence"
+        ],
+        "since": "2026-11-08",
+        "until": "2026-11-23",
+        "radius_km": 40.0
+    },
+    "latency_ms": 3410
+}
