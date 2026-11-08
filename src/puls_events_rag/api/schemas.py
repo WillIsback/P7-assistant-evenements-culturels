@@ -58,3 +58,23 @@ class HealthResponse(BaseModel):
     version: str
     llm_profile: str | None = None
     index: IndexStatus | None = None
+
+
+class CommuneCount(BaseModel):
+    commune: str
+    events: int
+
+
+class MetadataResponse(BaseModel):
+    """Ce que couvre l'assistant : données, fraîcheur, modèles."""
+
+    version: str
+    agenda_uid: str
+    zone: str
+    lookback_days: int
+    index: IndexStatus
+    llm_profile: str
+    llm_model: str
+    max_distance: float
+    communes: list[CommuneCount]
+    top_keywords: list[tuple[str, int]]

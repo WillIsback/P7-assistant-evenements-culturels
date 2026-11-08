@@ -426,6 +426,17 @@ class RegionalIndex:
                 return SearchResult(events, radius_km=radius)
         return SearchResult([])
 
+    def commune_counts(self) -> dict[str, int]:
+        """Nombre d'événements par commune du référentiel (« autre » sinon)."""
+        counts: Counter[str] = Counter()
+        seen: set[Any] = set()
+        for document in self._documents():
+            uid = document.metadata["uid"]
+            if uid not in seen:
+                seen.add(uid)
+                counts[document.metadata.get("commune") or "autre"] += 1
+        return dict(counts.most_common())
+
     def facets(self, where: EventFilter = NO_FILTER) -> Facets:
         """Nombre d'événements et mots-clés dominants pour un filtre (sans requête)."""
         communes = set(where.communes)
