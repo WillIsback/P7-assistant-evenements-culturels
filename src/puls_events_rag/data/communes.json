@@ -1,0 +1,568 @@
+{
+  "description": "L'agenda 21769447 est l'agenda des évènements dans la métropole de Aix-Marseille-Provence.",
+  "source": "Open Agenda, location.adminLevel4 (paramètre city[] de l'API v2) ; centres : geo.api.gouv.fr",
+  "communes": {
+    "Aix-en-Provence": {
+      "aliases": [
+        "Aix"
+      ],
+      "insee": "13001",
+      "lat": 43.536,
+      "lng": 5.3879
+    },
+    "Allauch": {
+      "aliases": [],
+      "insee": "13002",
+      "lat": 43.3522,
+      "lng": 5.5103
+    },
+    "Alleins": {
+      "aliases": [],
+      "insee": "13003",
+      "lat": 43.7098,
+      "lng": 5.1558
+    },
+    "Aubagne": {
+      "aliases": [],
+      "insee": "13005",
+      "lat": 43.2904,
+      "lng": 5.5643
+    },
+    "Auriol": {
+      "aliases": [],
+      "insee": "13007",
+      "lat": 43.3594,
+      "lng": 5.6559
+    },
+    "Aurons": {
+      "aliases": [],
+      "insee": "13008",
+      "lat": 43.6722,
+      "lng": 5.149
+    },
+    "La Barben": {
+      "aliases": [],
+      "insee": "13009",
+      "lat": 43.6189,
+      "lng": 5.2123
+    },
+    "Beaurecueil": {
+      "aliases": [],
+      "insee": "13012",
+      "lat": 43.5197,
+      "lng": 5.5481
+    },
+    "Belcodène": {
+      "aliases": [],
+      "insee": "13013",
+      "lat": 43.4231,
+      "lng": 5.5846
+    },
+    "Berre-l'Étang": {
+      "aliases": [
+        "Berre"
+      ],
+      "insee": "13014",
+      "lat": 43.4976,
+      "lng": 5.1596
+    },
+    "Bouc-Bel-Air": {
+      "aliases": [],
+      "insee": "13015",
+      "lat": 43.4442,
+      "lng": 5.4118
+    },
+    "La Bouilladisse": {
+      "aliases": [],
+      "insee": "13016",
+      "lat": 43.3942,
+      "lng": 5.626
+    },
+    "Cabriès": {
+      "aliases": [],
+      "insee": "13019",
+      "lat": 43.453,
+      "lng": 5.3467
+    },
+    "Cadolive": {
+      "aliases": [],
+      "insee": "13020",
+      "lat": 43.3943,
+      "lng": 5.5303
+    },
+    "Carnoux-en-Provence": {
+      "aliases": [
+        "Carnoux"
+      ],
+      "insee": "13119",
+      "lat": 43.259,
+      "lng": 5.5655
+    },
+    "Carry-le-Rouet": {
+      "aliases": [],
+      "insee": "13021",
+      "lat": 43.3462,
+      "lng": 5.1587
+    },
+    "Cassis": {
+      "aliases": [],
+      "insee": "13022",
+      "lat": 43.2185,
+      "lng": 5.5503
+    },
+    "Ceyreste": {
+      "aliases": [],
+      "insee": "13023",
+      "lat": 43.2215,
+      "lng": 5.6354
+    },
+    "Charleval": {
+      "aliases": [],
+      "insee": "13024",
+      "lat": 43.7205,
+      "lng": 5.2461
+    },
+    "Châteauneuf-le-Rouge": {
+      "aliases": [],
+      "insee": "13025",
+      "lat": 43.4892,
+      "lng": 5.5691
+    },
+    "Châteauneuf-les-Martigues": {
+      "aliases": [],
+      "insee": "13026",
+      "lat": 43.3904,
+      "lng": 5.1464
+    },
+    "La Ciotat": {
+      "aliases": [],
+      "insee": "13028",
+      "lat": 43.1882,
+      "lng": 5.6175
+    },
+    "Cornillon-Confoux": {
+      "aliases": [],
+      "insee": "13029",
+      "lat": 43.5762,
+      "lng": 5.0753
+    },
+    "Coudoux": {
+      "aliases": [],
+      "insee": "13118",
+      "lat": 43.5587,
+      "lng": 5.2559
+    },
+    "Cuges-les-Pins": {
+      "aliases": [],
+      "insee": "13030",
+      "lat": 43.2822,
+      "lng": 5.7099
+    },
+    "La Destrousse": {
+      "aliases": [],
+      "insee": "13031",
+      "lat": 43.3788,
+      "lng": 5.5984
+    },
+    "Éguilles": {
+      "aliases": [],
+      "insee": "13032",
+      "lat": 43.5662,
+      "lng": 5.3177
+    },
+    "Ensuès-la-Redonne": {
+      "aliases": [],
+      "insee": "13033",
+      "lat": 43.3554,
+      "lng": 5.188
+    },
+    "Eyguières": {
+      "aliases": [],
+      "insee": "13035",
+      "lat": 43.7005,
+      "lng": 5.0132
+    },
+    "La Fare-les-Oliviers": {
+      "aliases": [],
+      "insee": "13037",
+      "lat": 43.5541,
+      "lng": 5.2051
+    },
+    "Fos-sur-Mer": {
+      "aliases": [],
+      "insee": "13039",
+      "lat": 43.4545,
+      "lng": 4.8979
+    },
+    "Fuveau": {
+      "aliases": [],
+      "insee": "13040",
+      "lat": 43.4575,
+      "lng": 5.5537
+    },
+    "Gardanne": {
+      "aliases": [],
+      "insee": "13041",
+      "lat": 43.4585,
+      "lng": 5.4857
+    },
+    "Gémenos": {
+      "aliases": [],
+      "insee": "13042",
+      "lat": 43.2969,
+      "lng": 5.6518
+    },
+    "Gignac-la-Nerthe": {
+      "aliases": [],
+      "insee": "13043",
+      "lat": 43.3873,
+      "lng": 5.2334
+    },
+    "Grans": {
+      "aliases": [],
+      "insee": "13044",
+      "lat": 43.6172,
+      "lng": 5.0431
+    },
+    "Gréasque": {
+      "aliases": [],
+      "insee": "13046",
+      "lat": 43.4252,
+      "lng": 5.547
+    },
+    "Istres": {
+      "aliases": [],
+      "insee": "13047",
+      "lat": 43.5455,
+      "lng": 4.9477
+    },
+    "Jouques": {
+      "aliases": [],
+      "insee": "13048",
+      "lat": 43.6289,
+      "lng": 5.6605
+    },
+    "Lamanon": {
+      "aliases": [],
+      "insee": "13049",
+      "lat": 43.7073,
+      "lng": 5.0898
+    },
+    "Lambesc": {
+      "aliases": [],
+      "insee": "13050",
+      "lat": 43.6636,
+      "lng": 5.2493
+    },
+    "Lançon-Provence": {
+      "aliases": [],
+      "insee": "13051",
+      "lat": 43.5728,
+      "lng": 5.1725
+    },
+    "Mallemort": {
+      "aliases": [],
+      "insee": "13053",
+      "lat": 43.728,
+      "lng": 5.1849
+    },
+    "Marignane": {
+      "aliases": [],
+      "insee": "13054",
+      "lat": 43.4218,
+      "lng": 5.2178
+    },
+    "Marseille": {
+      "aliases": [],
+      "insee": "13055",
+      "lat": 43.2803,
+      "lng": 5.3806
+    },
+    "Martigues": {
+      "aliases": [],
+      "insee": "13056",
+      "lat": 43.3839,
+      "lng": 5.0451
+    },
+    "Meyrargues": {
+      "aliases": [],
+      "insee": "13059",
+      "lat": 43.6229,
+      "lng": 5.5321
+    },
+    "Meyreuil": {
+      "aliases": [],
+      "insee": "13060",
+      "lat": 43.488,
+      "lng": 5.5002
+    },
+    "Mimet": {
+      "aliases": [],
+      "insee": "13062",
+      "lat": 43.4123,
+      "lng": 5.5001
+    },
+    "Miramas": {
+      "aliases": [],
+      "insee": "13063",
+      "lat": 43.5841,
+      "lng": 5.0148
+    },
+    "Pélissanne": {
+      "aliases": [],
+      "insee": "13069",
+      "lat": 43.63,
+      "lng": 5.1628
+    },
+    "Les Pennes-Mirabeau": {
+      "aliases": [
+        "Les Pennes"
+      ],
+      "insee": "13071",
+      "lat": 43.4005,
+      "lng": 5.3222
+    },
+    "La Penne-sur-Huveaune": {
+      "aliases": [],
+      "insee": "13070",
+      "lat": 43.2778,
+      "lng": 5.5185
+    },
+    "Pertuis": {
+      "aliases": [],
+      "insee": "84089",
+      "lat": 43.6931,
+      "lng": 5.5345
+    },
+    "Peynier": {
+      "aliases": [],
+      "insee": "13072",
+      "lat": 43.4375,
+      "lng": 5.6204
+    },
+    "Peypin": {
+      "aliases": [],
+      "insee": "13073",
+      "lat": 43.3834,
+      "lng": 5.57
+    },
+    "Peyrolles-en-Provence": {
+      "aliases": [],
+      "insee": "13074",
+      "lat": 43.6262,
+      "lng": 5.5763
+    },
+    "Plan-de-Cuques": {
+      "aliases": [],
+      "insee": "13075",
+      "lat": 43.3642,
+      "lng": 5.4639
+    },
+    "Port-de-Bouc": {
+      "aliases": [],
+      "insee": "13077",
+      "lat": 43.4207,
+      "lng": 4.9993
+    },
+    "Port-Saint-Louis-du-Rhône": {
+      "aliases": [
+        "Port-Saint-Louis"
+      ],
+      "insee": "13078",
+      "lat": 43.4066,
+      "lng": 4.826
+    },
+    "Puyloubier": {
+      "aliases": [],
+      "insee": "13079",
+      "lat": 43.5192,
+      "lng": 5.6718
+    },
+    "Le Puy-Sainte-Réparade": {
+      "aliases": [],
+      "insee": "13080",
+      "lat": 43.6533,
+      "lng": 5.4401
+    },
+    "Rognac": {
+      "aliases": [],
+      "insee": "13081",
+      "lat": 43.4995,
+      "lng": 5.233
+    },
+    "Rognes": {
+      "aliases": [],
+      "insee": "13082",
+      "lat": 43.6672,
+      "lng": 5.3546
+    },
+    "La Roque-d'Anthéron": {
+      "aliases": [],
+      "insee": "13084",
+      "lat": 43.7166,
+      "lng": 5.3165
+    },
+    "Roquefort-la-Bédoule": {
+      "aliases": [],
+      "insee": "13085",
+      "lat": 43.2518,
+      "lng": 5.6297
+    },
+    "Roquevaire": {
+      "aliases": [],
+      "insee": "13086",
+      "lat": 43.3452,
+      "lng": 5.598
+    },
+    "Rousset": {
+      "aliases": [],
+      "insee": "13087",
+      "lat": 43.4869,
+      "lng": 5.6202
+    },
+    "Le Rove": {
+      "aliases": [],
+      "insee": "13088",
+      "lat": 43.3622,
+      "lng": 5.2498
+    },
+    "Saint-Antonin-sur-Bayon": {
+      "aliases": [],
+      "insee": "13090",
+      "lat": 43.5191,
+      "lng": 5.5972
+    },
+    "Saint-Cannat": {
+      "aliases": [],
+      "insee": "13091",
+      "lat": 43.6155,
+      "lng": 5.3108
+    },
+    "Saint-Chamas": {
+      "aliases": [],
+      "insee": "13092",
+      "lat": 43.5414,
+      "lng": 5.072
+    },
+    "Saint-Estève-Janson": {
+      "aliases": [],
+      "insee": "13093",
+      "lat": 43.6926,
+      "lng": 5.3891
+    },
+    "Saint-Marc-Jaumegarde": {
+      "aliases": [],
+      "insee": "13095",
+      "lat": 43.5567,
+      "lng": 5.5202
+    },
+    "Saint-Mitre-les-Remparts": {
+      "aliases": [],
+      "insee": "13098",
+      "lat": 43.4565,
+      "lng": 5.0152
+    },
+    "Saint-Paul-lès-Durance": {
+      "aliases": [],
+      "insee": "13099",
+      "lat": 43.6869,
+      "lng": 5.748
+    },
+    "Saint-Savournin": {
+      "aliases": [],
+      "insee": "13101",
+      "lat": 43.4025,
+      "lng": 5.5321
+    },
+    "Saint-Victoret": {
+      "aliases": [],
+      "insee": "13102",
+      "lat": 43.4121,
+      "lng": 5.2508
+    },
+    "Salon-de-Provence": {
+      "aliases": [],
+      "insee": "13103",
+      "lat": 43.643,
+      "lng": 5.049
+    },
+    "Sausset-les-Pins": {
+      "aliases": [],
+      "insee": "13104",
+      "lat": 43.3469,
+      "lng": 5.1158
+    },
+    "Sénas": {
+      "aliases": [],
+      "insee": "13105",
+      "lat": 43.7402,
+      "lng": 5.073
+    },
+    "Septèmes-les-Vallons": {
+      "aliases": [],
+      "insee": "13106",
+      "lat": 43.3931,
+      "lng": 5.3828
+    },
+    "Simiane-Collongue": {
+      "aliases": [],
+      "insee": "13107",
+      "lat": 43.4154,
+      "lng": 5.4359
+    },
+    "Le Tholonet": {
+      "aliases": [],
+      "insee": "13109",
+      "lat": 43.5218,
+      "lng": 5.5053
+    },
+    "Trets": {
+      "aliases": [],
+      "insee": "13110",
+      "lat": 43.4452,
+      "lng": 5.7137
+    },
+    "Vauvenargues": {
+      "aliases": [],
+      "insee": "13111",
+      "lat": 43.5619,
+      "lng": 5.6207
+    },
+    "Velaux": {
+      "aliases": [],
+      "insee": "13112",
+      "lat": 43.5215,
+      "lng": 5.246
+    },
+    "Venelles": {
+      "aliases": [],
+      "insee": "13113",
+      "lat": 43.5951,
+      "lng": 5.4991
+    },
+    "Ventabren": {
+      "aliases": [],
+      "insee": "13114",
+      "lat": 43.5446,
+      "lng": 5.3045
+    },
+    "Vernègues": {
+      "aliases": [],
+      "insee": "13115",
+      "lat": 43.6841,
+      "lng": 5.1892
+    },
+    "Vitrolles": {
+      "aliases": [],
+      "insee": "13117",
+      "lat": 43.4509,
+      "lng": 5.2656
+    },
+    "Saint-Zacharie": {
+      "aliases": [],
+      "insee": "83120",
+      "lat": 43.3749,
+      "lng": 5.7164
+    }
+  }
+}
