@@ -26,10 +26,15 @@ Jeu : `tests/rag/scenarios.yaml` (14 scénarios). Exécution :
 1. **Requêtes télégraphiques** : une requête réduite à des mots-clés (« atelier refaire
    CV ») est plus éloignée des passages (distance L2² 0,55) que la phrase complète
    (0,31). Le parseur produit désormais une courte phrase en français.
-2. **Seuil de pertinence** : 0,53 sur la requête reformulée. Il écarte le hors-sujet net ;
-   les cas limites (« recette de pizza », 0,48) sont refusés par le LLM, qui ne répond
-   qu'à partir du contexte.
+2. **Seuil de pertinence** : 0,52 sur la requête reformulée, après bonus lexical (recherche
+   hybride pondérée par l'IDF). Il écarte le hors-sujet net ; les cas limites sont refusés
+   par le LLM, qui ne répond qu'à partir du contexte. Calibrage : `evaluation.md`.
 3. **Questions sans thème** : avec une commune ou une période, on liste sans seuil ;
    sans aucun filtre, l'assistant demande de préciser au lieu de chercher.
 4. **Lieux hors métropole** : conservés par le parseur pour être signalés, jamais filtrés.
 5. **Langue** : la requête est traduite en français (embeddings et passages en français).
+6. **Ancrage** : le parseur ne garde que les communes écrites dans la question et écarte
+   une période sans indice temporel ; une question qui ne porte pas sur des événements
+   (`about_events`) n'est pas cherchée.
+
+Les 14 scénarios passent aussi en profil `ci` (OpenRouter `mistral-small-2603`).

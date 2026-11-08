@@ -12,7 +12,7 @@ from pydantic import Field
 
 from puls_events_rag.core.index import RegionalIndex
 from puls_events_rag.rag.chain import CLARIFY, NO_RESULT, RagChain
-from puls_events_rag.rag.query import LLMQueryParser, SearchQuery, fallback_query
+from puls_events_rag.rag.query import LLMQueryParser, SearchQuery, fallback_query, ground
 from tests.test_index import AIX, EMBEDDINGS, MODEL, _event
 
 TODAY = date(2026, 11, 8)
@@ -161,3 +161,35 @@ def test_aucun_resultat_hors_metropole() -> None:
     answer, _ = _ask(SearchQuery(query="football", communes=["Lyon"]))
 
     assert answer.answer.startswith("Lyon est hors de la métropole")
+
+
+def test_question_hors_evenements_sans_recherche() -> None:
+    query = SearchQuery(query="météo", communes=["Marseille"], about_events=False)
+
+    answer, llm = _ask(query, question="Quel temps fera-t-il à Marseille demain ?")
+
+    assert answer.answer == CLARIFY
+    assert llm.received == []
+
+
+def test_ancrage_communes_et_periode_inventees() -> None:
+    parsed = SearchQuery(
+        query="conférence",
+        communes=["Marseille", "Aix-en-Provence", "Lyon"],
+        since=date(2026, 11, 8),
+        until=date(2026, 11, 23),
+    )
+
+    grounded = ground(parsed, "Une conférence sur le pont Saint-Sébastien à Lyon ?")
+
+    assert grounded.communes == ["Lyon"]
+    assert grounded.since is None and grounded.until is None
+
+
+def test_ancrage_garde_la_periode_et_les_alias() -> None:
+    parsed = SearchQuery(query="atelier", communes=[], since=date(2026, 11, 8))
+
+    grounded = ground(parsed, "Un atelier à Aix la semaine prochaine ?")
+
+    assert grounded.communes == ["Aix-en-Provence"]
+    assert grounded.since == date(2026, 11, 8)

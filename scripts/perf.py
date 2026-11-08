@@ -82,7 +82,7 @@ def main() -> None:
     parser.add_argument("--rounds", type=int, default=4)
     args = parser.parse_args()
     load_dotenv()
-    setup_cache("disk://?directory=./data/cache&shards=4")
+    setup_cache()  # CACHE_URL (Valkey) sinon mémoire
     asyncio.run(measure_index(args.rounds))
     if args.base_url:
         measure_ask(args.base_url, max(1, args.rounds // 2))

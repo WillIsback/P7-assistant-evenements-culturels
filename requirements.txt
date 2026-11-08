@@ -43,8 +43,6 @@ charset-normalizer==3.5.2
     # via requests
 click==8.5.1
     # via uvicorn
-diskcache==5.6.3
-    # via cashews
 distro==1.9.0
     # via langsmith
 faiss-cpu==1.15.1

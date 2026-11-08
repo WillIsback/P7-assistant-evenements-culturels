@@ -1,0 +1,294 @@
+{
+    "version": "0.1.1.dev25+geac44e6c1",
+    "agenda_uid": "21769447",
+    "zone": "Métropole Aix-Marseille-Provence",
+    "lookback_days": 365,
+    "index": {
+        "loaded": true,
+        "fresh": true,
+        "refreshing": false,
+        "event_count": 4294,
+        "document_count": 4854,
+        "synced_at": "2026-11-08T10:50:13.608777Z",
+        "embedding_model": "mistralai/mistral-embed-2312"
+    },
+    "llm_profile": "ci",
+    "llm_model": "mistralai/mistral-small-2603",
+    "max_distance": 0.52,
+    "communes": [
+        {
+            "commune": "Marseille",
+            "events": 1994
+        },
+        {
+            "commune": "Martigues",
+            "events": 680
+        },
+        {
+            "commune": "Aix-en-Provence",
+            "events": 365
+        },
+        {
+            "commune": "Istres",
+            "events": 196
+        },
+        {
+            "commune": "La Ciotat",
+            "events": 170
+        },
+        {
+            "commune": "Marignane",
+            "events": 151
+        },
+        {
+            "commune": "Vitrolles",
+            "events": 142
+        },
+        {
+            "commune": "Salon-de-Provence",
+            "events": 117
+        },
+        {
+            "commune": "Aubagne",
+            "events": 100
+        },
+        {
+            "commune": "Pertuis",
+            "events": 93
+        },
+        {
+            "commune": "Gardanne",
+            "events": 85
+        },
+        {
+            "commune": "Miramas",
+            "events": 70
+        },
+        {
+            "commune": "Rognac",
+            "events": 10
+        },
+        {
+            "commune": "Carry-le-Rouet",
+            "events": 8
+        },
+        {
+            "commune": "autre",
+            "events": 8
+        },
+        {
+            "commune": "Berre-l'Étang",
+            "events": 7
+        },
+        {
+            "commune": "Châteauneuf-les-Martigues",
+            "events": 6
+        },
+        {
+            "commune": "Fos-sur-Mer",
+            "events": 6
+        },
+        {
+            "commune": "Meyreuil",
+            "events": 6
+        },
+        {
+            "commune": "Ensuès-la-Redonne",
+            "events": 5
+        },
+        {
+            "commune": "Fuveau",
+            "events": 4
+        },
+        {
+            "commune": "Les Pennes-Mirabeau",
+            "events": 4
+        },
+        {
+            "commune": "Sausset-les-Pins",
+            "events": 4
+        },
+        {
+            "commune": "Port-de-Bouc",
+            "events": 3
+        },
+        {
+            "commune": "Sénas",
+            "events": 3
+        },
+        {
+            "commune": "Peynier",
+            "events": 3
+        },
+        {
+            "commune": "Pélissanne",
+            "events": 3
+        },
+        {
+            "commune": "Bouc-Bel-Air",
+            "events": 3
+        },
+        {
+            "commune": "La Roque-d'Anthéron",
+            "events": 3
+        },
+        {
+            "commune": "Éguilles",
+            "events": 3
+        },
+        {
+            "commune": "Grans",
+            "events": 3
+        },
+        {
+            "commune": "Plan-de-Cuques",
+            "events": 3
+        },
+        {
+            "commune": "Le Rove",
+            "events": 2
+        },
+        {
+            "commune": "Rousset",
+            "events": 2
+        },
+        {
+            "commune": "Port-Saint-Louis-du-Rhône",
+            "events": 2
+        },
+        {
+            "commune": "Saint-Victoret",
+            "events": 2
+        },
+        {
+            "commune": "Eyguières",
+            "events": 2
+        },
+        {
+            "commune": "Cassis",
+            "events": 2
+        },
+        {
+            "commune": "Saint-Zacharie",
+            "events": 2
+        },
+        {
+            "commune": "Rognes",
+            "events": 2
+        },
+        {
+            "commune": "Saint-Chamas",
+            "events": 2
+        },
+        {
+            "commune": "Mimet",
+            "events": 2
+        },
+        {
+            "commune": "Saint-Mitre-les-Remparts",
+            "events": 1
+        },
+        {
+            "commune": "Peyrolles-en-Provence",
+            "events": 1
+        },
+        {
+            "commune": "Cabriès",
+            "events": 1
+        },
+        {
+            "commune": "Mallemort",
+            "events": 1
+        },
+        {
+            "commune": "Vauvenargues",
+            "events": 1
+        },
+        {
+            "commune": "Le Puy-Sainte-Réparade",
+            "events": 1
+        },
+        {
+            "commune": "Gignac-la-Nerthe",
+            "events": 1
+        },
+        {
+            "commune": "Auriol",
+            "events": 1
+        },
+        {
+            "commune": "Venelles",
+            "events": 1
+        },
+        {
+            "commune": "Allauch",
+            "events": 1
+        },
+        {
+            "commune": "Lançon-Provence",
+            "events": 1
+        },
+        {
+            "commune": "Jouques",
+            "events": 1
+        },
+        {
+            "commune": "Saint-Paul-lès-Durance",
+            "events": 1
+        },
+        {
+            "commune": "Gémenos",
+            "events": 1
+        },
+        {
+            "commune": "Le Tholonet",
+            "events": 1
+        },
+        {
+            "commune": "Trets",
+            "events": 1
+        }
+    ],
+    "top_keywords": [
+        [
+            "Recrutement",
+            1254
+        ],
+        [
+            "S'informer",
+            1128
+        ],
+        [
+            "TousMobilisés",
+            928
+        ],
+        [
+            "Découverte secteur / métier",
+            810
+        ],
+        [
+            "Marché du travail",
+            598
+        ],
+        [
+            "Création d'entreprise",
+            589
+        ],
+        [
+            "Découverte formation",
+            561
+        ],
+        [
+            "Se préparer",
+            503
+        ],
+        [
+            "Aides à l'emploi",
+            409
+        ],
+        [
+            "Insertion",
+            243
+        ]
+    ]
+}

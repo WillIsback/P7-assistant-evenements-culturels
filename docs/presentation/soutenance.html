@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Puls-Events RAG</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ── Design tokens (Vercel-style white/light) ───────────────────── */
+:root{
+  --bg:#ffffff;
+  --ink:#171717; --ink-2:#4d4d4d; --ink-3:#8f8f8f;
+  --line:#ebebeb; --ring:rgba(0,0,0,.08);
+  --accent:#0a72ef; --accent-bg:#ebf5ff; --accent-ink:#0068d6;
+  --pink:#de1d8d; --pink-bg:#fdf0f6;
+  --red:#ff5b4f; --red-bg:#fff0ef; --red-ink:#d92d20;
+  --green:#16a34a; --green-bg:#ecfdf5;
+  --amber:#b45309; --amber-bg:#fefce8;
+  --sans:'Geist',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --mono:'Geist Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;background:var(--bg);overflow:hidden;font-family:var(--sans);color:var(--ink)}
+
+/* ── Stage engine: 1920×1080, scale-to-fit ─────────────────────── */
+#viewport{position:fixed;inset:0;background:var(--bg)}
+#stage{position:absolute;left:50%;top:50%;width:1920px;height:1080px;transform:translate(-50%,-50%);transform-origin:center center;background:var(--bg)}
+.slide{position:absolute;inset:0;width:1920px;height:1080px;padding:96px 120px 110px;display:none;flex-direction:column;background:var(--bg)}
+.slide.active{display:flex}
+#progress{position:fixed;top:0;left:0;height:3px;background:var(--ink);width:0;z-index:50;transition:width .25s ease}
+#hint{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);font-family:var(--mono);font-size:12px;color:#bbb;z-index:60;letter-spacing:.06em}
+
+/* ── Typography ────────────────────────────────────────────────── */
+.kicker{font-family:var(--mono);font-size:20px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);margin-bottom:28px}
+.kicker b{color:var(--accent);font-weight:500}
+h1.display{font-size:148px;font-weight:600;letter-spacing:-6px;line-height:1.0;color:var(--ink)}
+h1.display .thin{font-weight:300;color:var(--ink-2)}
+h2{font-size:64px;font-weight:600;letter-spacing:-2.2px;line-height:1.08;color:var(--ink);margin-bottom:20px}
+.lede{font-size:34px;font-weight:300;line-height:1.55;color:var(--ink-2);letter-spacing:-.4px}
+.mono{font-family:var(--mono)}
+.body{margin-top:56px;flex:1;display:flex;flex-direction:column;justify-content:center}
+
+/* ── Components ────────────────────────────────────────────────── */
+.card{background:#fff;border-radius:14px;box-shadow:0 0 0 1px var(--ring),0 2px 2px rgba(0,0,0,.04);padding:36px 40px}
+.card .card-t{font-size:30px;font-weight:600;letter-spacing:-.9px;color:var(--ink);margin-bottom:12px}
+.card .card-d{font-size:25px;font-weight:400;line-height:1.5;color:var(--ink-2)}
+.grid{display:grid;gap:28px}
+.g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:1fr 1fr 1fr}.g4{grid-template-columns:repeat(4,1fr)}
+
+.pill{display:inline-flex;align-items:center;gap:10px;border-radius:9999px;padding:8px 20px;font-family:var(--mono);font-size:20px;font-weight:500;letter-spacing:.04em}
+.pill.blue{background:var(--accent-bg);color:var(--accent-ink)}
+.pill.pink{background:var(--pink-bg);color:var(--pink)}
+.pill.red{background:var(--red-bg);color:var(--red-ink)}
+.pill.green{background:var(--green-bg);color:var(--green)}
+.pill.amber{background:var(--amber-bg);color:var(--amber)}
+.pill.gray{background:#fafafa;color:var(--ink-2);box-shadow:0 0 0 1px var(--ring)}
+
+.rows{display:flex;flex-direction:column}
+.row{display:flex;align-items:flex-start;gap:28px;padding:26px 0;border-bottom:1px solid var(--line)}
+.row:last-child{border-bottom:none}
+.row .n{font-family:var(--mono);font-size:22px;color:var(--ink-3);min-width:52px;padding-top:6px}
+.row .t{font-size:29px;font-weight:500;letter-spacing:-.6px;color:var(--ink)}
+.row .t small{display:block;font-size:24px;font-weight:400;color:var(--ink-2);margin-top:6px;line-height:1.45}
+.row .dot{width:14px;height:14px;border-radius:50%;margin-top:12px;flex:none}
+
+.flow{display:flex;align-items:stretch;gap:0}
+.flow .node{flex:1;text-align:center;background:#fff;border-radius:14px;box-shadow:0 0 0 1px var(--ring),0 2px 2px rgba(0,0,0,.04);padding:40px 18px}
+.flow .node .nn{font-family:var(--mono);font-size:18px;color:var(--ink-3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:12px}
+.flow .node .nt{font-size:29px;font-weight:600;letter-spacing:-.8px;color:var(--ink)}
+.flow .node .nd{font-size:21px;color:var(--ink-2);margin-top:8px;line-height:1.4}
+.flow .arr{flex:none;width:64px;display:flex;align-items:center;justify-content:center;color:var(--ink-3);font-size:34px}
+
+.strip{border-radius:14px;padding:28px 40px;font-size:28px;font-weight:500;letter-spacing:-.4px;display:flex;align-items:center;gap:20px}
+
+.stat .sv{font-size:84px;font-weight:600;letter-spacing:-3.5px;color:var(--ink);line-height:1.05}
+.stat .sl{font-family:var(--mono);font-size:19px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);margin-top:10px}
+.stat .sn{font-size:23px;color:var(--ink-2);margin-top:12px;line-height:1.45}
+
+.cover-meta{display:flex;gap:64px;margin-top:88px}
+.cover-meta .mk{font-family:var(--mono);font-size:17px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);margin-bottom:8px}
+.cover-meta .mv{font-size:26px;font-weight:500;color:var(--ink);letter-spacing:-.5px}
+.rule{height:1px;background:var(--line)}
+
+svg text{font-family:var(--sans)}
+svg .mono,svg text.mono{font-family:var(--mono)}
+
+/* ── Print / PDF ───────────────────────────────────────────────── */
+@media print{
+  html,body{overflow:visible;background:#fff;height:auto}
+  #viewport{position:static;inset:auto}
+  #stage{position:static;transform:none!important;width:1920px;height:auto}
+  .slide{position:relative;display:flex!important;page-break-after:always}
+  #progress,#hint{display:none}
+  @page{size:1920px 1080px;margin:0}
+}
+</style>
+</head>
+<body>
+<div id="viewport">
+<div id="stage">
+
+<!-- ═══ 01 · COUVERTURE ═══ -->
+<section class="slide active" data-label="Couverture">
+  <div class="body" style="justify-content:center">
+    <div class="kicker">PULS-EVENTS · POC · <b>ASSISTANT RAG</b></div>
+    <h1 class="display">Puls<span class="thin">Events</span> RAG</h1>
+    <p class="lede" style="max-width:1300px;margin-top:36px">Un assistant qui recommande les événements de la métropole Aix-Marseille-Provence, à partir de l'agenda réel, sans rien inventer.</p>
+    <div class="rule" style="margin-top:72px"></div>
+    <div class="cover-meta" style="margin-top:36px">
+      <div><div class="mk">Données</div><div class="mv">4 294 événements <span class="mono" style="color:var(--ink-3)">Open Agenda</span></div></div>
+      <div><div class="mk">Stack</div><div class="mv">LangChain · Mistral · Faiss · FastAPI</div></div>
+      <div><div class="mk">Livraison</div><div class="mv">v0.3.0 · image Docker</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 02 · OBJECTIF ═══ -->
+<section class="slide" data-label="Objectif">
+  <div class="kicker">01 · Le besoin</div>
+  <h2>Répondre en langage naturel, à partir de notre agenda</h2>
+  <div class="body">
+    <div class="grid g3">
+      <div class="card"><div class="card-t">Comprendre</div><div class="card-d">« Un atelier d'immersion professionnelle à Aix dans les 15 prochains jours » : thème, ville, dates.</div></div>
+      <div class="card"><div class="card-t">Trouver</div><div class="card-d">Les événements réels de l'agenda, à jour, dans la bonne zone et la bonne période.</div></div>
+      <div class="card"><div class="card-t">Répondre</div><div class="card-d">Une réponse claire qui cite chaque événement (titre, date, lieu, lien), ou qui dit qu'il n'y a rien.</div></div>
+    </div>
+    <div class="strip" style="background:var(--accent-bg);color:var(--accent-ink);margin-top:48px"><span class="mono" style="font-size:22px">→</span> Livrer un POC : API REST, image Docker, qualité mesurée.</div>
+  </div>
+</section>
+
+<!-- ═══ 03 · LE RAG SIMPLEMENT ═══ -->
+<section class="slide" data-label="Le RAG">
+  <div class="kicker">02 · Fonctionnement</div>
+  <h2>Comme un libraire : chercher d'abord, rédiger ensuite</h2>
+  <p class="lede" style="max-width:1500px">Un modèle de langage seul ne connaît pas notre agenda et invente. Le RAG lui fournit les bons documents avant qu'il réponde.</p>
+  <div class="body">
+    <div class="flow">
+      <div class="node"><div class="nn">1 · Question</div><div class="nt">Comprendre</div><div class="nd">thème, communes,<br>période</div></div>
+      <div class="arr">→</div>
+      <div class="node"><div class="nn">2 · Recherche</div><div class="nt">Retrouver</div><div class="nd">par le sens, dans<br>4 854 passages</div></div>
+      <div class="arr">→</div>
+      <div class="node"><div class="nn">3 · Rédaction</div><div class="nt">Répondre</div><div class="nd">uniquement à partir<br>des événements trouvés</div></div>
+      <div class="arr">→</div>
+      <div class="node" style="box-shadow:0 0 0 1px var(--ring),0 2px 2px rgba(0,0,0,.04),0 0 0 4px var(--accent-bg)"><div class="nn" style="color:var(--accent-ink)">Résultat</div><div class="nt">Réponse sourcée</div><div class="nd">chaque événement<br>avec son lien</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 04 · DONNÉES ═══ -->
+<section class="slide" data-label="Données">
+  <div class="kicker">03 · Les données</div>
+  <h2>Tout l'agenda de la métropole, rafraîchi chaque jour</h2>
+  <div class="body">
+    <div class="grid g4">
+      <div class="card stat"><div class="sv">4 294</div><div class="sl">événements</div><div class="sn">365 derniers jours et à venir</div></div>
+      <div class="card stat"><div class="sv">92</div><div class="sl">communes</div><div class="sn">filtre par ville, alias (« Aix »)</div></div>
+      <div class="card stat"><div class="sv">24 h</div><div class="sl">fraîcheur</div><div class="sn">resynchronisation automatique</div></div>
+      <div class="card stat"><div class="sv">3 min</div><div class="sl">reconstruction</div><div class="sn">puis seuls les nouveaux passages</div></div>
+    </div>
+    <div style="display:flex;gap:20px;margin-top:56px;flex-wrap:wrap"><span class="pill gray">nettoyage HTML / Markdown</span><span class="pill gray">découpage 1 000 car.</span><span class="pill blue">mistral-embed · 1 024 dim.</span><span class="pill gray">≈ 75 % emploi · 25 % culture</span></div>
+  </div>
+</section>
+
+<!-- ═══ 05 · ARCHITECTURE ═══ -->
+<section class="slide" data-label="Architecture">
+  <div class="kicker">04 · Architecture</div>
+  <h2>Une chaîne simple, entièrement automatisée</h2>
+  <div class="body">
+    <div class="flow">
+      <div class="node"><div class="nn">Source</div><div class="nt">Open Agenda</div><div class="nd">API v2, pagination</div></div>
+      <div class="arr">→</div>
+      <div class="node"><div class="nn">Préparation</div><div class="nt">Documents</div><div class="nd">nettoyage, découpage, métadonnées</div></div>
+      <div class="arr">→</div>
+      <div class="node"><div class="nn">Index</div><div class="nt">Faiss</div><div class="nd">vecteurs Mistral, manifeste</div></div>
+      <div class="arr">→</div>
+      <div class="node"><div class="nn">Chaîne</div><div class="nt">LangChain</div><div class="nd">filtres + LLM Mistral</div></div>
+      <div class="arr">→</div>
+      <div class="node" style="box-shadow:0 0 0 1px var(--ring),0 2px 2px rgba(0,0,0,.04),0 0 0 4px var(--accent-bg)"><div class="nn" style="color:var(--accent-ink)">Accès</div><div class="nt">API FastAPI</div><div class="nd">/ask /metadata /health /rebuild</div></div>
+    </div>
+    <div style="display:flex;gap:20px;margin-top:64px;flex-wrap:wrap"><span class="pill blue">image Docker avec index embarqué</span><span class="pill green">gate d'évaluation à chaque version</span><span class="pill gray">un adaptateur LLM : vLLM local ou OpenRouter</span></div>
+  </div>
+</section>
+
+<!-- ═══ 06 · CE QU'IL COMPREND ═══ -->
+<section class="slide" data-label="Exemple">
+  <div class="kicker">05 · En pratique</div>
+  <h2>Rien à Aix ? Il le dit, et cherche autour</h2>
+  <div class="body">
+    <div class="grid g2" style="grid-template-columns:.9fr 1.1fr;align-items:start">
+      <div class="card"><div class="card-t">La question</div><div class="card-d">« Je recherche un atelier d'immersion professionnelle à Aix-en-Provence dans les 15 prochains jours »</div>
+        <div style="display:flex;gap:14px;margin-top:28px;flex-wrap:wrap"><span class="pill gray">thème : immersion pro</span><span class="pill gray">Aix-en-Provence</span><span class="pill gray">8 → 23 nov.</span></div></div>
+      <div class="card" style="box-shadow:0 0 0 1px var(--ring),0 2px 2px rgba(0,0,0,.04),0 0 0 4px var(--green-bg)"><div class="card-t">La réponse</div><div class="card-d">« Il n'y a aucun événement pertinent à Aix-en-Provence. Voici un événement situé aux alentours : <b>Atelier « Trouver et préparer son immersion professionnelle »</b>, jeudi 19 novembre, 08h45, agence Marseille Pont de Vivaux, à 28,1 km. »</div></div>
+    </div>
+    <div class="strip" style="background:var(--amber-bg);color:var(--amber);margin-top:40px"><span class="mono" style="font-size:22px">→</span> Filtres exhaustifs, élargissement par rayons (5 → 40 km), distance annoncée.</div>
+  </div>
+</section>
+
+<!-- ═══ 07 · CONVERSATION ═══ -->
+<section class="slide" data-label="Conversation">
+  <div class="kicker">06 · Au-delà du cahier des charges</div>
+  <h2>Une vraie conversation, qui garde le contexte</h2>
+  <div class="body">
+    <div class="rows">
+      <div class="row"><div class="n">VOUS</div><div class="t">« Les événements à Aix dans les 15 prochains jours ? »</div></div>
+      <div class="row"><div class="n">IA</div><div class="t">17 événements, surtout découverte des métiers, création d'entreprise, recrutement. Que recherchez-vous ?<small>outil list_event_themes · réponse affichée au fil de l'eau (streaming)</small></div></div>
+      <div class="row"><div class="n">VOUS</div><div class="t">« Je recherche un atelier d'immersion professionnelle. »</div></div>
+      <div class="row"><div class="n">IA</div><div class="t">Deux rendez-vous à Aix, les 18 et 20 novembre…<small>outil search_events · réutilise Aix et les dates sans les redemander</small></div></div>
+    </div>
+    <div style="display:flex;gap:20px;margin-top:36px;flex-wrap:wrap"><span class="pill blue">agent LangChain à outils</span><span class="pill gray">sessions par utilisateur (JWT)</span><span class="pill gray">historique persistant</span></div>
+  </div>
+</section>
+
+<!-- ═══ 08 · QUALITÉ ═══ -->
+<section class="slide" data-label="Qualité">
+  <div class="kicker">07 · Qualité mesurée</div>
+  <h2>40 questions annotées, cinq indicateurs</h2>
+  <div class="body">
+    <div class="card" style="padding:40px 48px"><svg viewBox="0 0 1560 340" width="100%"><g stroke="#ebebeb"><line x1="120" y1="300.0" x2="1480" y2="300.0"/><line x1="120" y1="240.0" x2="1480" y2="240.0"/><line x1="120" y1="180.0" x2="1480" y2="180.0"/><line x1="120" y1="120.0" x2="1480" y2="120.0"/><line x1="120" y1="60.0" x2="1480" y2="60.0"/></g><g font-size="20" fill="#8f8f8f" class="mono"><text x="100" y="307.0" text-anchor="end">0</text><text x="100" y="187.0" text-anchor="end">0,5</text><text x="100" y="67.0" text-anchor="end">1</text></g><rect x="196" y="100.8" width="120" height="199.2" rx="8" fill="var(--accent)" opacity=".85"/><rect x="468" y="122.4" width="120" height="177.6" rx="8" fill="var(--accent)" opacity=".85"/><rect x="740" y="60.0" width="120" height="240.0" rx="8" fill="var(--accent)" opacity=".85"/><rect x="1012" y="67.2" width="120" height="232.8" rx="8" fill="var(--accent)" opacity=".85"/><rect x="1284" y="88.8" width="120" height="211.2" rx="8" fill="var(--accent)" opacity=".85"/><line x1="172" y1="132.0" x2="340" y2="132.0" stroke="var(--red)" stroke-width="4" stroke-dasharray="10 7"/><line x1="444" y1="180.0" x2="612" y2="180.0" stroke="var(--red)" stroke-width="4" stroke-dasharray="10 7"/><line x1="716" y1="108.0" x2="884" y2="108.0" stroke="var(--red)" stroke-width="4" stroke-dasharray="10 7"/><line x1="988" y1="96.0" x2="1156" y2="96.0" stroke="var(--red)" stroke-width="4" stroke-dasharray="10 7"/><line x1="1260" y1="132.0" x2="1428" y2="132.0" stroke="var(--red)" stroke-width="4" stroke-dasharray="10 7"/><text x="256" y="86.8" text-anchor="middle" font-size="26" font-weight="600" fill="var(--ink)">0,83</text><text x="528" y="108.4" text-anchor="middle" font-size="26" font-weight="600" fill="var(--ink)">0,74</text><text x="800" y="46.0" text-anchor="middle" font-size="26" font-weight="600" fill="var(--ink)">1,00</text><text x="1072" y="53.2" text-anchor="middle" font-size="26" font-weight="600" fill="var(--ink)">0,97</text><text x="1344" y="74.8" text-anchor="middle" font-size="26" font-weight="600" fill="var(--ink)">0,88</text><text x="256" y="328" text-anchor="middle" font-size="22" fill="#4d4d4d" class="mono">hit rate</text><text x="528" y="328" text-anchor="middle" font-size="22" fill="#4d4d4d" class="mono">MRR</text><text x="800" y="328" text-anchor="middle" font-size="22" fill="#4d4d4d" class="mono">refus</text><text x="1072" y="328" text-anchor="middle" font-size="22" fill="#4d4d4d" class="mono">fidélité</text><text x="1344" y="328" text-anchor="middle" font-size="22" fill="#4d4d4d" class="mono">exactitude</text></svg>
+      <div style="display:flex;gap:36px;margin-top:8px;font-size:22px;color:#4d4d4d"><span><span style="display:inline-block;width:22px;height:14px;background:var(--accent);opacity:.85;border-radius:3px;margin-right:10px"></span>score (profil ci, 2026-11-08)</span><span><span style="display:inline-block;width:26px;border-top:4px dashed var(--red);margin-right:10px;vertical-align:middle"></span>seuil de la gate</span></div>
+    </div>
+    <p class="lede" style="font-size:26px;margin-top:28px">Thème, lieu, date, sans réponse, hors sujet, hors zone · LLM-juge structuré · bloque la release sous un seuil.</p>
+  </div>
+</section>
+
+<!-- ═══ 09 · AMÉLIORATION ═══ -->
+<section class="slide" data-label="Amélioration">
+  <div class="kicker">08 · Ce que la mesure a corrigé</div>
+  <h2>Hit rate : de 0,48 à 0,83</h2>
+  <div class="body">
+    <div class="rows">
+      <div class="row"><div class="dot" style="background:var(--red)"></div><div class="t">Le modèle inventait des villes et des dates<small>ancrage : on ne garde que ce que la question dit vraiment → 0,48 → 0,86</small></div></div>
+      <div class="row"><div class="dot" style="background:var(--accent)"></div><div class="t">La distance sémantique seule ratait des titres évidents<small>recherche hybride : bonus lexical pondéré par la rareté des mots</small></div></div>
+      <div class="row"><div class="dot" style="background:var(--amber)"></div><div class="t">Des propositions hors sujet « aux alentours »<small>seuil resserré pendant l'élargissement · seuil global calibré à 0,52</small></div></div>
+      <div class="row"><div class="dot" style="background:var(--green)"></div><div class="t">14 scénarios de robustesse : 14/14<small>injection de prompt, anglais, fautes d'orthographe, hors zone, sans résultat</small></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 10 · PERFORMANCE ═══ -->
+<section class="slide" data-label="Performance">
+  <div class="kicker">09 · Performance et coût</div>
+  <h2>Rapide à chercher, le LLM fait l'essentiel du temps</h2>
+  <div class="body">
+    <div class="grid g4">
+      <div class="card stat"><div class="sv">6 ms</div><div class="sl">recherche filtrée</div><div class="sn">p50, sur tout l'index</div></div>
+      <div class="card stat"><div class="sv">≈ 5 s</div><div class="sl">réponse /ask</div><div class="sn">p50 ; deux appels LLM</div></div>
+      <div class="card stat"><div class="sv">0,01 $</div><div class="sl">évaluation complète</div><div class="sn">40 questions, ≈ 30 s</div></div>
+      <div class="card stat"><div class="sv">92 %</div><div class="sl">couverture de tests</div><div class="sn">145 tests sans réseau</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 11 · DÉMO ═══ -->
+<section class="slide" data-label="Démo">
+  <div class="kicker">10 · Démonstration</div>
+  <h2>Un conteneur, trois questions</h2>
+  <div class="body">
+    <div class="rows">
+      <div class="row"><div class="n">01</div><div class="t"><span class="mono" style="font-size:26px">docker compose up</span> · <span class="mono" style="font-size:26px">GET /metadata</span><small>l'agenda complet est déjà dans l'image</small></div></div>
+      <div class="row"><div class="n">02</div><div class="t">Immersion professionnelle à Aix, sous 15 jours<small>filtres, élargissement, sources</small></div></div>
+      <div class="row"><div class="n">03</div><div class="t">Spectacles au théâtre des Salins en décembre<small>l'offre culturelle</small></div></div>
+      <div class="row"><div class="n">04</div><div class="t">« Quel temps fera-t-il demain ? »<small>il recentre au lieu de répondre à côté</small></div></div>
+      <div class="row"><div class="n">05</div><div class="t">Fenêtre de chat et Swagger<small>conversation multi-tour · API documentée</small></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 12 · PERSPECTIVES ═══ -->
+<section class="slide" data-label="Perspectives">
+  <div class="kicker">11 · Limites et suite</div>
+  <h2>Un POC solide, des pistes claires</h2>
+  <div class="body">
+    <div class="grid g2">
+      <div class="card"><div class="card-t">Limites</div><div class="card-d">Agenda à 75 % emploi · seuil calibré sur cet agenda · ≈ 5 s par réponse · jeu annoté par une seule personne.</div></div>
+      <div class="card"><div class="card-t">Qualité</div><div class="card-d">Reranking des meilleurs candidats · filtres sur chaque date d'un événement · jeu d'évaluation élargi, juge indépendant.</div></div>
+      <div class="card"><div class="card-t">Produit</div><div class="card-d">Ajout d'un événement à l'agenda de l'utilisateur · réponses en streaming sur /ask · autres agendas, autres villes.</div></div>
+      <div class="card"><div class="card-t">Production</div><div class="card-d">Image publiée et scannée à chaque version · cache partagé (Valkey) · base PostgreSQL · observabilité (Langfuse).</div></div>
+    </div>
+  </div>
+</section>
+
+</div>
+</div>
+<div id="progress"></div>
+<div id="hint">← → naviguer · F plein écran · P imprimer / PDF</div>
+
+<script>
+(function(){
+  var slides=[].slice.call(document.querySelectorAll('.slide'));
+  if(!slides.length)return;
+  var KEY='deck_slide_'+(document.title||'default').replace(/\W/g,'_');
+  var i=0;
+  try{i=parseInt(localStorage.getItem(KEY)||'0',10);}catch(e){}
+  if(location.hash&&/^#\d+$/.test(location.hash)){var h=parseInt(location.hash.slice(1),10);if(h>=1&&h<=slides.length)i=h-1;}
+  if(!(i>=0&&i<slides.length))i=0;
+  var bar=document.getElementById('progress');
+  var stage=document.getElementById('stage');
+  function fit(){
+    var s=Math.min(window.innerWidth/1920,window.innerHeight/1080);
+    stage.style.transform='translate(-50%,-50%) scale('+s+')';
+  }
+  function show(n){
+    i=Math.max(0,Math.min(slides.length-1,n));
+    slides.forEach(function(sl,k){sl.classList.toggle('active',k===i);});
+    if(bar)bar.style.width=((i+1)/slides.length*100)+'%';
+    try{localStorage.setItem(KEY,i);}catch(e){}
+    fit();
+  }
+  window.addEventListener('resize',fit);
+  window.addEventListener('orientationchange',fit);
+  if(window.visualViewport)window.visualViewport.addEventListener('resize',fit);
+  document.addEventListener('fullscreenchange',fit);
+  document.addEventListener('keydown',function(e){
+    if(e.key==='ArrowRight'||e.key===' '||e.key==='PageDown'){e.preventDefault();show(i+1);}
+    else if(e.key==='ArrowLeft'||e.key==='PageUp'){e.preventDefault();show(i-1);}
+    else if(e.key==='Home'){show(0);}
+    else if(e.key==='End'){show(slides.length-1);}
+    else if(e.key==='f'||e.key==='F'){if(document.fullscreenElement)document.exitFullscreen();else document.documentElement.requestFullscreen();}
+    else if(e.key==='p'||e.key==='P'){window.print();}
+  });
+  var vp=document.getElementById('viewport');
+  if(vp){
+    vp.addEventListener('click',function(e){
+      if(e.clientX>window.innerWidth*0.6)show(i+1);else if(e.clientX<window.innerWidth*0.4)show(i-1);
+    });
+    var tx=null,ty=null;
+    vp.addEventListener('touchstart',function(e){tx=e.touches[0].clientX;ty=e.touches[0].clientY;},{passive:true});
+    vp.addEventListener('touchend',function(e){
+      if(tx===null)return;
+      var dx=e.changedTouches[0].clientX-tx,dy=e.changedTouches[0].clientY-ty;
+      if(Math.abs(dx)>50&&Math.abs(dx)>Math.abs(dy))show(dx<0?i+1:i-1);
+      else if(Math.abs(dx)<10&&Math.abs(dy)<10){if(tx>window.innerWidth*0.6)show(i+1);else if(tx<window.innerWidth*0.4)show(i-1);}
+      tx=ty=null;
+    },{passive:true});
+  }
+  // per-slide chrome: brand left + counter right (survives print)
+  slides.forEach(function(s,k){
+    var b=document.createElement('div');
+    b.style.cssText='position:absolute;left:120px;bottom:48px;font-family:var(--mono);font-size:18px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)';
+    b.textContent=(document.title||'')+' · '+(s.dataset.label||'');
+    s.appendChild(b);
+    var c=document.createElement('div');
+    c.style.cssText='position:absolute;right:120px;bottom:48px;font-family:var(--mono);font-size:20px;color:var(--ink-3)';
+    c.textContent=String(k+1).padStart(2,'0')+' / '+String(slides.length).padStart(2,'0');
+    s.appendChild(c);
+  });
+  show(i);
+})();
+</script>
+</body>
+</html>

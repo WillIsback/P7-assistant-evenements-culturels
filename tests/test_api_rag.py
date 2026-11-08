@@ -161,3 +161,24 @@ def test_rebuild_lance_puis_refuse_un_second(
     assert recording.started == 1
     assert status["refreshing"] is True
     assert status["event_count"] == 1
+
+
+def test_metadata_decrit_la_couverture(client: TestClient) -> None:
+    body = client.get("/metadata").json()
+
+    assert body["zone"] == "Métropole Aix-Marseille-Provence"
+    assert body["lookback_days"] == 365
+    assert body["index"]["event_count"] == 1
+    assert body["communes"] == [{"commune": "Aix-en-Provence", "events": 1}]
+    assert body["llm_profile"] == "ci"
+    assert 0 < body["max_distance"] < 1
+
+
+def test_metadata_sans_index_renvoie_503(tmp_path: Path) -> None:
+    app.state.services = _services(tmp_path, None)
+    try:
+        response = TestClient(app).get("/metadata")
+    finally:
+        del app.state.services
+
+    assert response.status_code == 503

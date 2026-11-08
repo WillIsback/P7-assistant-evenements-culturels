@@ -92,8 +92,9 @@ uv run python scripts/build_index.py --skip-collect  # réindexe data/raw/events
 Le manifeste note le modèle d'embeddings (un index construit avec un autre modèle est
 refusé au chargement) et la date de synchronisation : l'index est valide
 `INDEX_TTL_HOURS` heures (24 par défaut), puis l'API le resynchronise en tâche de fond.
-Les embeddings sont mis en cache (`data/cache/`) : une reconstruction quotidienne ne
-paie que les passages nouveaux ou modifiés. Le filtrage par commune et par période se
+Les embeddings sont mis en cache dans **Valkey** (`docker compose up -d valkey`, puis
+`CACHE_URL=redis://localhost:6379/0` dans `.env`) : une reconstruction quotidienne ne paie
+que les passages nouveaux ou modifiés. Sans `CACHE_URL`, cache en mémoire du processus. Le filtrage par commune et par période se
 fait au retrieval, sur les métadonnées des passages, avec élargissement par rayons
 (5, 10, 20, 40 km) quand la commune demandée n'a aucun résultat.
 
@@ -107,6 +108,13 @@ curl http://127.0.0.1:8000/health      # état, version, profil LLM, index charg
 Documentation interactive : `http://127.0.0.1:8000/docs`. L'index régional est chargé
 une fois au démarrage (`data/index`, voir ci-dessus) ; s'il a plus de 24 h, il continue
 de servir pendant qu'une resynchronisation tourne en tâche de fond.
+
+**Ce que couvre l'assistant** (`GET /metadata`) : zone, période (365 jours glissants),
+nombre d'événements par commune, fraîcheur de l'index, modèles et seuil de pertinence.
+
+```bash
+curl -s http://127.0.0.1:8000/metadata | jq '{zone, lookback_days, index, llm_model, communes: .communes[:5]}'
+```
 
 **Poser une question** (`POST /ask`) :
 
@@ -144,7 +152,8 @@ curl -s http://127.0.0.1:8000/rebuild -H "Authorization: Bearer $REBUILD_TOKEN"
 
 Avec Docker : l'image publiée à chaque release **embarque l'index régional** (construit
 par la release) ; le conteneur est `healthy` dès que l'API répond et que l'index est
-chargé. Démo en une commande (volumes pour l'index resynchronisé, la base et le cache) :
+chargé. Démo en une commande : l'API et un **Valkey** (cache persistant), avec des volumes pour
+l'index resynchronisé, la base et le cache :
 
 ```bash
 docker compose up                   # compose.yaml, lit .env ; LLM_PROFILE=ci par défaut
@@ -222,6 +231,17 @@ curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8000/<route-protégée>
 Dans Swagger (`http://127.0.0.1:8000/docs`) : bouton **Authorize**, puis `demo` /
 `demo-puls-2026`.
 
+## Évaluation
+
+```bash
+LLM_PROFILE=ci uv run python scripts/evaluate.py --output reports/evaluation.md
+```
+
+Jeu annoté de 40 questions (`eval/dataset.jsonl`), métriques de récupération (hit rate,
+MRR), de refus et de génération (fidélité, exactitude par LLM-juge), seuils
+configurables ; gate de chaque release. Méthode et résultats :
+`docs/evaluation/evaluation.md` ; robustesse : `docs/evaluation/scenarios-robustesse.md`.
+
 ## Organisation
 
 | Chemin | Contenu |
@@ -229,7 +249,8 @@ Dans Swagger (`http://127.0.0.1:8000/docs`) : bouton **Authorize**, puis `demo` 
 | `src/puls_events_rag/` | code du système RAG et de l'API (`api/` : application FastAPI) |
 | `scripts/` | collecte Open Agenda, reconstruction de l'index, évaluation |
 | `tests/` | tests unitaires (sans réseau) et d'intégration (`-m integration`) |
-| `docs/` | rapport technique et présentation |
+| `eval/` | jeu de test annoté de l'évaluation |
+| `docs/` | rapport technique, présentation, résultats d'évaluation |
 | `data/` | données brutes et index (générés, non versionnés) |
 | `pyproject.toml`, `uv.lock` | dépendances (source de vérité) |
 | `requirements.txt` | export pip de `uv.lock` |
