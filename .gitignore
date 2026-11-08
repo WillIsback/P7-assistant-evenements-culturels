@@ -21,6 +21,9 @@ coverage.xml
 data/raw/
 data/processed/
 data/index/
+data/index.tmp/
+data/index.old/
+data/cache/
 reports/
 
 # Outillage local

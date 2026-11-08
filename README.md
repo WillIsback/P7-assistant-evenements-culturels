@@ -73,6 +73,30 @@ Installation « propre » vérifiée le 07/11/2026 (copie du dépôt sans `.venv
 `pip install --no-cache-dir -r requirements.txt` dans un venv Python 3.11 vierge (≈ 30 s)
 et `uv sync --locked` avec un cache uv vide, suivis des tests qui passent.
 
+## Reconstruire l'index régional
+
+Tout l'agenda Open Agenda de la métropole Aix-Marseille-Provence (agenda `21769447`,
+événements des 365 derniers jours et à venir) est collecté, découpé en passages et
+vectorisé (`mistral-embed`) dans un index Faiss :
+
+```bash
+uv run python scripts/build_index.py                 # collecte complète puis indexation
+uv run python scripts/build_index.py --skip-collect  # réindexe data/raw/events.jsonl
+```
+
+| Sortie | Contenu |
+|---|---|
+| `data/raw/events.jsonl` | événements bruts collectés (un par ligne) |
+| `data/index/` | `index.faiss`, `documents.jsonl` (passages et métadonnées), `manifest.json` |
+
+Le manifeste note le modèle d'embeddings (un index construit avec un autre modèle est
+refusé au chargement) et la date de synchronisation : l'index est valide
+`INDEX_TTL_HOURS` heures (24 par défaut), puis l'API le resynchronise en tâche de fond.
+Les embeddings sont mis en cache (`data/cache/`) : une reconstruction quotidienne ne
+paie que les passages nouveaux ou modifiés. Le filtrage par commune et par période se
+fait au retrieval, sur les métadonnées des passages, avec élargissement par rayons
+(5, 10, 20, 40 km) quand la commune demandée n'a aucun résultat.
+
 ## Lancer l'API
 
 ```bash
