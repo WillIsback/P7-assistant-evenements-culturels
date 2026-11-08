@@ -63,9 +63,22 @@ humaine (répétition, revue avec le mentor).
 
 ## Vérification de bout en bout depuis un clone vierge
 
-Rejouée le 2026-11-08 sur un clone neuf (voir la PR de la v0.3.0) :
-`uv sync --locked` → `pytest` → `build_index.py` → `docker build` / `docker run` →
-`api_test.py` → `evaluate.py`.
+Rejouée le 2026-11-08 (16 h 15 → 16 h 22) sur un clone neuf de `docs/0.3.0-livrables`,
+avec le seul `.env` copié :
+
+| Étape | Résultat |
+|---|---|
+| `uv sync --locked` | 3 s |
+| `ruff`, `mypy` | OK |
+| `pytest -m "not integration"` | 145 réussis, 1 ignoré (UI Gradio, hors lock) |
+| `scripts/build_index.py` (collecte + embeddings, cache vide) | 4 294 événements, 4 854 passages, 3 min |
+| `docker build` | 46 s |
+| `docker run` | conteneur `healthy` (index chargé) |
+| `scripts/api_test.py` contre le conteneur | 7/7 |
+| `scripts/evaluate.py` (profil `ci`) | hit 0,76 · MRR 0,70 · refus 1,00 · fidélité 0,97 · exactitude 0,88 — seuils atteints, 37 s, ≈ 0,011 $ |
+
+Le hit rate varie d'une exécution à l'autre (0,76 à 0,83) : l'extraction de la requête par
+le LLM n'est pas parfaitement déterministe. Les seuils de la gate gardent une marge.
 
 ## Questions possibles du jury
 
