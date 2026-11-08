@@ -185,10 +185,11 @@ curl -N -X POST http://127.0.0.1:8000/chat/sessions/$SID/messages -H "Authorizat
 ```
 
 **Fenêtre de chat de développement (Gradio)** : elle ne passe que par l'API HTTP, pour
-valider l'aller-retour front ↔ back (dépendance `dev`, absente de l'image Docker).
+valider l'aller-retour front ↔ back. Script autonome (PEP 723) : Gradio s'installe dans
+un environnement isolé, hors du lock du projet et de l'image Docker.
 
 ```bash
-uv run python scripts/chat_ui.py    # http://127.0.0.1:7860 (API_URL, GRADIO_SERVER_PORT)
+uv run --script scripts/chat_ui.py    # http://127.0.0.1:7860 (API_URL, GRADIO_SERVER_PORT)
 ```
 
 ### Utilisateur de démonstration
