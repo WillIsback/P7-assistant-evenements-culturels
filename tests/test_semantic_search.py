@@ -9,14 +9,9 @@ import httpx
 import pytest
 from langchain_core.embeddings import DeterministicFakeEmbedding
 
+from puls_events_rag.core.documents import CHUNK_SIZE, events_to_documents
 from puls_events_rag.core.providers.open_agenda import OpenAgendaClient
-from puls_events_rag.core.semantic_search import (
-    CHUNK_SIZE,
-    EventIndex,
-    event_to_documents,
-    events_to_documents,
-    retrieve_events,
-)
+from puls_events_rag.core.semantic_search import EventIndex, retrieve_events
 
 EMBEDDINGS = DeterministicFakeEmbedding(size=32)
 
@@ -45,49 +40,6 @@ def _event(uid: int = 43496199, **overrides: Any) -> dict[str, Any]:
     }
     event.update(overrides)
     return event
-
-
-def test_event_to_documents_construit_texte_et_metadonnees() -> None:
-    [doc] = event_to_documents(_event())
-
-    assert doc.page_content.startswith("Titre : Kouss•Ftartchi\nDates : Vendredi 28 août")
-    assert "Lieu : La Cômerie, 176 rue Breteuil, 13006 Marseille" in doc.page_content
-    assert "Mots-clés : Concert, Gratuit" in doc.page_content
-    assert "Public : à partir de 6 ans" in doc.page_content
-    assert "Conditions" not in doc.page_content  # champ vide omis
-    assert "**" not in doc.page_content  # Markdown retiré
-    assert doc.page_content.count("Cuisine et concert au menu !") == 1  # résumé non dupliqué
-    assert doc.metadata["uid"] == 43496199
-    assert doc.metadata["city"] == "Marseille"
-    assert doc.metadata["begin"] == "2026-08-28T14:30:00+02:00"
-    assert doc.metadata["url"].endswith("/43496199")
-
-
-def test_repli_sur_une_autre_langue_et_evenement_minimal() -> None:
-    [doc] = event_to_documents({"uid": 1, "title": {"en": "Jazz night"}})
-
-    assert doc.page_content == "Titre : Jazz night"
-    assert doc.metadata["location"] == ""
-
-
-def test_ignore_les_evenements_sans_titre_ou_uid() -> None:
-    assert event_to_documents({"uid": 1, "title": {}}) == []
-    assert event_to_documents({"title": {"fr": "Sans uid"}}) == []
-
-
-def test_longue_description_decoupee_avec_en_tete_repete() -> None:
-    long_text = " ".join(f"phrase{i}" for i in range(CHUNK_SIZE))
-    docs = event_to_documents(_event(longDescription={"fr": long_text}, description={}))
-
-    assert len(docs) > 1
-    assert all(doc.page_content.startswith("Titre : Kouss•Ftartchi") for doc in docs)
-    assert [doc.metadata["chunk"] for doc in docs] == list(range(len(docs)))
-
-
-def test_events_to_documents_deduplique_par_uid() -> None:
-    docs = events_to_documents([_event(1), _event(1), _event(2), {"uid": 3}])
-
-    assert [doc.metadata["uid"] for doc in docs] == [1, 2]
 
 
 def test_index_renvoie_des_evenements_distincts_tries() -> None:

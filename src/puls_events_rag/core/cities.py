@@ -87,3 +87,13 @@ def strip_cities(keywords: list[str], cities: list[str]) -> list[str]:
     _, lookup = _index()
     filtered = set(cities)
     return [keyword for keyword in keywords if lookup.get(normalize(keyword)) not in filtered]
+
+
+def resolve_commune(name: str) -> str | None:
+    """Nom officiel de la commune désignée par ``name`` (nom exact ou alias), sinon ``None``.
+
+    « aix », « Aix en Provence » et « AIX-EN-PROVENCE » renvoient ``Aix-en-Provence`` ;
+    une commune hors de la métropole renvoie ``None``.
+    """
+    _, lookup = _index()
+    return lookup.get(normalize(name))
