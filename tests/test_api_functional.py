@@ -17,9 +17,11 @@ pytestmark = pytest.mark.integration
 def test_api_fonctionnelle() -> None:
     base_url = os.getenv("API_BASE_URL") or DEFAULT_BASE_URL
     try:
-        httpx.get(f"{base_url}/health", timeout=3)
-    except httpx.HTTPError:
+        health = httpx.get(f"{base_url}/health", timeout=3).json()
+    except (httpx.HTTPError, ValueError):
         pytest.skip(f"API injoignable sur {base_url}")
+    if "index" not in health:  # un autre service occupe le port
+        pytest.skip(f"{base_url} ne sert pas l'API Puls-Events (définir API_BASE_URL)")
 
     with httpx.Client(base_url=base_url, timeout=60) as client:
         checks = run_checks(client)
