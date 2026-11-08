@@ -222,6 +222,17 @@ curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8000/<route-protégée>
 Dans Swagger (`http://127.0.0.1:8000/docs`) : bouton **Authorize**, puis `demo` /
 `demo-puls-2026`.
 
+## Évaluation
+
+```bash
+LLM_PROFILE=ci uv run python scripts/evaluate.py --output reports/evaluation.md
+```
+
+Jeu annoté de 40 questions (`eval/dataset.jsonl`), métriques de récupération (hit rate,
+MRR), de refus et de génération (fidélité, exactitude par LLM-juge), seuils
+configurables ; gate de chaque release. Méthode et résultats :
+`docs/evaluation/evaluation.md` ; robustesse : `docs/evaluation/scenarios-robustesse.md`.
+
 ## Organisation
 
 | Chemin | Contenu |
@@ -229,7 +240,8 @@ Dans Swagger (`http://127.0.0.1:8000/docs`) : bouton **Authorize**, puis `demo` 
 | `src/puls_events_rag/` | code du système RAG et de l'API (`api/` : application FastAPI) |
 | `scripts/` | collecte Open Agenda, reconstruction de l'index, évaluation |
 | `tests/` | tests unitaires (sans réseau) et d'intégration (`-m integration`) |
-| `docs/` | rapport technique et présentation |
+| `eval/` | jeu de test annoté de l'évaluation |
+| `docs/` | rapport technique, présentation, résultats d'évaluation |
 | `data/` | données brutes et index (générés, non versionnés) |
 | `pyproject.toml`, `uv.lock` | dépendances (source de vérité) |
 | `requirements.txt` | export pip de `uv.lock` |
