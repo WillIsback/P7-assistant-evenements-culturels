@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 import pytest
+
+# Gradio vit dans l'environnement du script (PEP 723), pas dans celui du projet.
+pytest.importorskip("gradio", reason="Gradio est hors du lock (script PEP 723)")
+
 from scripts.chat_ui import _session_path, format_sources, parse_sse
 
 
