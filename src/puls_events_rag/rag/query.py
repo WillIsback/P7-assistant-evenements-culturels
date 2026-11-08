@@ -9,6 +9,7 @@ la question entière comme requête et les communes repérées par regex.
 from __future__ import annotations
 
 import logging
+import re
 from datetime import UTC, date, datetime, time
 from typing import Protocol
 
@@ -16,7 +17,7 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel, Field
 
-from puls_events_rag.core.cities import match_cities, resolve_commune
+from puls_events_rag.core.cities import match_cities, normalize, resolve_commune
 from puls_events_rag.core.index import EventFilter
 
 logger = logging.getLogger(__name__)
@@ -33,12 +34,22 @@ PARSER_PROMPT = ChatPromptTemplate.from_messages(
             "si la question ne précise aucun thème (« des événements à Aix ? », « qu'est-ce "
             "qu'il y a ? ») ;\n"
             "- communes : tous les lieux cités, même hors de la métropole, liste vide si aucun ;\n"
+            "- about_events : faux si la question ne demande pas des événements, sorties ou "
+            "activités (météo, culture générale, code, recette, abonnement…) ;\n"
             "- since / until : la période demandée en dates ISO (AAAA-MM-JJ), null si la "
             "question n'en précise pas. « les 15 prochains jours » : since = aujourd'hui, "
             "until = aujourd'hui + 15 jours.",
         ),
         ("human", "{question}"),
     ]
+)
+
+# Indices temporels : sans eux, une période renvoyée par le LLM est inventée.
+_TEMPORAL = re.compile(
+    r"\b(aujourd|demain|hier|soir|matin|week|semaine|mois|jours?|annee|ete|hiver|"
+    r"printemps|automne|janvier|fevrier|mars|avril|mai|juin|juillet|aout|septembre|"
+    r"octobre|novembre|decembre|prochaine?s?|noel|vacances|today|tomorrow|month|"
+    r"weekend|\d{1,2}(er)?|\d{4})\b"
 )
 
 WEEKDAYS = ("lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche")
@@ -51,6 +62,9 @@ class SearchQuery(BaseModel):
         default="", description="thème recherché en une courte phrase, vide si aucun"
     )
     communes: list[str] = Field(default_factory=list, description="communes citées")
+    about_events: bool = Field(
+        default=True, description="vrai si la question demande des événements ou sorties"
+    )
     since: date | None = Field(default=None, description="début de la période (inclus)")
     until: date | None = Field(default=None, description="fin de la période (incluse)")
 
@@ -100,6 +114,25 @@ class LLMQueryParser:
             return fallback_query(question)
         if not isinstance(parsed, SearchQuery):
             return fallback_query(question)
-        # Le LLM peut oublier une commune citée : on complète par la détection regex.
-        communes = list(dict.fromkeys([*parsed.communes, *match_cities(question)]))
-        return parsed.model_copy(update={"communes": communes})
+        return ground(parsed, question)
+
+
+def ground(parsed: SearchQuery, question: str) -> SearchQuery:
+    """Ne garde que ce que la question dit vraiment.
+
+    Communes : seulement celles écrites dans la question (référentiel ou texte brut,
+    pour signaler « Lyon »), complétées par la détection regex. Période : écartée si la
+    question ne contient aucun indice temporel (le LLM en invente parfois une).
+    """
+    text = normalize(question)
+    cited = match_cities(question)
+    kept = [
+        name
+        for name in parsed.communes
+        if resolve_commune(name) in cited or (normalize(name) and normalize(name) in text)
+    ]
+    communes = list(dict.fromkeys([*kept, *cited]))
+    update: dict[str, object] = {"communes": communes}
+    if not _TEMPORAL.search(text):
+        update |= {"since": None, "until": None}
+    return parsed.model_copy(update=update)

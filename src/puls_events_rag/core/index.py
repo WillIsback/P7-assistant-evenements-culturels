@@ -20,6 +20,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import math
 import shutil
 from collections import Counter
 from collections.abc import Callable, Iterable, Mapping, Sequence
@@ -34,7 +35,7 @@ from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 
-from puls_events_rag.core.cities import city_centers
+from puls_events_rag.core.cities import city_centers, normalize
 from puls_events_rag.core.documents import events_to_documents
 from puls_events_rag.core.geo import GeoPoint, haversine_km
 
@@ -46,6 +47,21 @@ MANIFEST_FILE = "manifest.json"
 DEFAULT_TOP_K = 5
 FALLBACK_RADII_KM = (5.0, 10.0, 20.0, 40.0)
 TOP_KEYWORDS = 10
+# Hors de la commune demandée, on ne propose que du clairement pertinent : seuil resserré.
+EXPANSION_MARGIN = 0.05
+# Recherche hybride : la distance L2 est diminuée de LEXICAL_WEIGHT multiplié par la part
+# (pondérée par l'IDF) des termes de la requête présents dans le titre ou les mots-clés.
+LEXICAL_WEIGHT = 0.15
+# Bonus accordé seulement si la majorité (pondérée) des termes est présente : un seul mot
+# courant (« atelier ») ne doit pas faire remonter un événement hors sujet.
+LEXICAL_MIN_OVERLAP = 0.5
+_STOPWORDS = frozenset(
+    (
+        "avec", "dans", "pour", "sans", "sous", "sur", "des", "les", "une", "aux", "par",
+        "que", "qui", "quoi", "quel", "quelle", "quels", "quelles", "est", "sont",
+        "evenement", "evenements",
+    )
+)  # fmt: skip
 
 
 class IndexLoadError(RuntimeError):
@@ -153,6 +169,45 @@ def _distance_km(metadata: Mapping[str, Any], centers: Sequence[GeoPoint]) -> fl
     return round(min(haversine_km(point, center) for center in centers), 1)
 
 
+def query_terms(query: str) -> list[str]:
+    """Racines (5 premières lettres) des mots significatifs de la requête."""
+    words = normalize(query).split()
+    return list(dict.fromkeys(w[:5] for w in words if len(w) >= 4 and w not in _STOPWORDS))
+
+
+def lexical_bonus(
+    terms: Sequence[str], metadata: Mapping[str, Any], idf: Mapping[str, float] | None = None
+) -> float:
+    """Réduction de distance accordée pour une correspondance lexicale majoritaire."""
+    overlap = lexical_overlap(terms, metadata, idf)
+    return LEXICAL_WEIGHT * overlap if overlap >= LEXICAL_MIN_OVERLAP else 0.0
+
+
+def _stems(metadata: Mapping[str, Any]) -> set[str]:
+    text = normalize(" ".join([str(metadata.get("title") or ""), *metadata.get("keywords", [])]))
+    return {word[:5] for word in text.split()}
+
+
+def lexical_overlap(
+    terms: Sequence[str], metadata: Mapping[str, Any], idf: Mapping[str, float] | None = None
+) -> float:
+    """Part (pondérée par l'IDF) des racines de la requête présentes dans le titre et les
+    mots-clés : « immersion », rare, compte bien plus qu'« atelier », omniprésent."""
+    if not terms:
+        return 0.0
+    weights = {term: (idf or {}).get(term, 1.0) for term in terms}
+    total = sum(weights.values())
+    if total <= 0:
+        return 0.0
+    stems = _stems(metadata)
+    return sum(weight for term, weight in weights.items() if term in stems) / total
+    haystack = normalize(
+        " ".join([str(metadata.get("title") or ""), *metadata.get("keywords", [])])
+    )
+    stems = {word[:5] for word in haystack.split()}
+    return sum(term in stems for term in terms) / len(terms)
+
+
 def fingerprint_events(events: Iterable[Mapping[str, Any]]) -> str:
     """Empreinte des données : ``uid`` et date de mise à jour de chaque événement."""
     pairs = sorted((str(e.get("uid")), str(e.get("updatedAt", ""))) for e in events)
@@ -165,6 +220,22 @@ class RegionalIndex:
     def __init__(self, store: FAISS, manifest: IndexManifest) -> None:
         self._store = store
         self.manifest = manifest
+        self._idf: dict[str, float] | None = None
+
+    @property
+    def idf(self) -> dict[str, float]:
+        """IDF des racines des titres et mots-clés, par événement (calculé une fois)."""
+        if self._idf is None:
+            frequency: Counter[str] = Counter()
+            seen: set[Any] = set()
+            for document in self._documents():
+                uid = document.metadata["uid"]
+                if uid not in seen:
+                    seen.add(uid)
+                    frequency.update(_stems(document.metadata))
+            total = max(len(seen), 1)
+            self._idf = {stem: math.log((1 + total) / (1 + df)) for stem, df in frequency.items()}
+        return self._idf
 
     # -- construction et persistance -------------------------------------------------
 
@@ -286,8 +357,20 @@ class RegionalIndex:
         hits = await self._store.asimilarity_search_with_score_by_vector(
             vector, k=total, fetch_k=total, filter=keep
         )
+        terms = query_terms(query)
+        idf = self.idf
+        adjusted = sorted(
+            (
+                (
+                    document,
+                    float(score) - LEXICAL_WEIGHT * lexical_overlap(terms, document.metadata, idf),
+                )
+                for document, score in hits
+            ),
+            key=lambda pair: pair[1],
+        )
         best: dict[Any, tuple[Document, float]] = {}
-        for document, score in hits:
+        for document, score in adjusted:
             if max_distance is not None and score > max_distance:
                 break  # résultats triés : tous les suivants sont moins pertinents
             best.setdefault(document.metadata["uid"], (document, float(score)))
@@ -332,7 +415,8 @@ class RegionalIndex:
                 distance = _distance_km(metadata, centers)
                 return distance is not None and distance <= radius and _in_period(metadata, where)
 
-            hits = await self._ranked(query, nearby, k, max_distance)
+            strict = None if max_distance is None else max_distance - EXPANSION_MARGIN
+            hits = await self._ranked(query, nearby, k, strict)
             if hits:
                 logger.info("Aucun résultat à %s : élargissement à %g km", communes, radius)
                 events = [
