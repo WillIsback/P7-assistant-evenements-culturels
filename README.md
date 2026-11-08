@@ -121,6 +121,17 @@ La réponse contient `answer` (texte généré à partir des seuls événements 
 `latency_ms`. Codes : `422` question vide ou trop longue (1 000 caractères), `503` tant
 qu'aucun index n'est disponible.
 
+**Test fonctionnel** contre une API qui tourne (locale ou conteneur) :
+
+```bash
+uv run python scripts/api_test.py --base-url http://127.0.0.1:8000
+```
+
+Il vérifie `/health` (index chargé), trois questions de démo (réponse et sources),
+les erreurs `422` et `/rebuild` sans jeton, affiche la latence de chaque appel et sort
+en erreur au moindre échec. Variante pytest : `API_BASE_URL=… uv run pytest
+tests/test_api_functional.py -m integration --no-cov` (hors CI de PR).
+
 **Reconstruire l'index** (`POST /rebuild`, jeton `REBUILD_TOKEN` de `.env`) : lance la
 collecte et l'indexation en tâche de fond (`202`), `409` si une reconstruction est déjà
 en cours ; `GET /rebuild` donne l'état de l'index. Sans `REBUILD_TOKEN`, la route est
