@@ -101,14 +101,126 @@ fait au retrieval, sur les métadonnées des passages, avec élargissement par r
 
 ```bash
 uv run uvicorn puls_events_rag.api.app:app --reload
-curl http://127.0.0.1:8000/health
+curl http://127.0.0.1:8000/health      # état, version, profil LLM, index chargé et fraîcheur
 ```
 
-Avec Docker :
+Documentation interactive : `http://127.0.0.1:8000/docs`. L'index régional est chargé
+une fois au démarrage (`data/index`, voir ci-dessus) ; s'il a plus de 24 h, il continue
+de servir pendant qu'une resynchronisation tourne en tâche de fond.
+
+**Poser une question** (`POST /ask`) :
 
 ```bash
-docker run --rm -p 8000:8000 --env-file .env ghcr.io/willisback/p7-assistant-evenements-culturels:latest
+curl -s -X POST http://127.0.0.1:8000/ask -H 'Content-Type: application/json' \
+  -d '{"question": "Un atelier d'"'"'immersion professionnelle à Aix-en-Provence dans les 15 prochains jours ?", "k": 3}'
 ```
+
+La réponse contient `answer` (texte généré à partir des seuls événements retrouvés),
+`sources` (titre, dates, lieu, commune, URL, distance si la zone a été élargie),
+`filters` (thème, communes, période et rayon d'élargissement déduits de la question) et
+`latency_ms`. Codes : `422` question vide ou trop longue (1 000 caractères), `503` tant
+qu'aucun index n'est disponible.
+
+**Test fonctionnel** contre une API qui tourne (locale ou conteneur) :
+
+```bash
+uv run python scripts/api_test.py --base-url http://127.0.0.1:8000
+```
+
+Il vérifie `/health` (index chargé), trois questions de démo (réponse et sources),
+les erreurs `422` et `/rebuild` sans jeton, affiche la latence de chaque appel et sort
+en erreur au moindre échec. Variante pytest : `API_BASE_URL=… uv run pytest
+tests/test_api_functional.py -m integration --no-cov` (hors CI de PR).
+
+**Reconstruire l'index** (`POST /rebuild`, jeton `REBUILD_TOKEN` de `.env`) : lance la
+collecte et l'indexation en tâche de fond (`202`), `409` si une reconstruction est déjà
+en cours ; `GET /rebuild` donne l'état de l'index. Sans `REBUILD_TOKEN`, la route est
+désactivée (`404`).
+
+```bash
+curl -s -X POST http://127.0.0.1:8000/rebuild -H "Authorization: Bearer $REBUILD_TOKEN"
+curl -s http://127.0.0.1:8000/rebuild -H "Authorization: Bearer $REBUILD_TOKEN"
+```
+
+Avec Docker : l'image publiée à chaque release **embarque l'index régional** (construit
+par la release) ; le conteneur est `healthy` dès que l'API répond et que l'index est
+chargé. Démo en une commande (volumes pour l'index resynchronisé, la base et le cache) :
+
+```bash
+docker compose up                   # compose.yaml, lit .env ; LLM_PROFILE=ci par défaut
+# ou
+docker run --rm -p 8000:8000 --env-file .env ghcr.io/willisback/p7-assistant-evenements-culturels:latest
+uv run python scripts/api_test.py   # vérifie le conteneur
+```
+
+L'index embarqué a plus de 24 h dès le lendemain de la release : il sert immédiatement,
+pendant qu'une resynchronisation tourne en fond (clés Open Agenda et OpenRouter dans
+`.env`). Performance mesurée : `docs/evaluation/performance.md` (`scripts/perf.py`).
+
+### Chat multi-tour (`/chat`)
+
+Conversations authentifiées (JWT, voir l'utilisateur de démonstration ci-dessous) :
+une session appartient à un utilisateur, l'historique est conservé par le checkpointer
+LangGraph (`CHECKPOINT_DB`, défaut `data/checkpoints.db`) et survit au redémarrage.
+
+| Méthode | Route | Effet |
+|---|---|---|
+| `POST` | `/chat/sessions` | ouvre une conversation (contrôle la fraîcheur de l'index) |
+| `GET` | `/chat/sessions` | mes conversations, la plus récente d'abord |
+| `GET` | `/chat/sessions/{id}` | historique (messages, outils appelés, sources) |
+| `POST` | `/chat/sessions/{id}/messages` | message → réponse en **streaming SSE** |
+| `DELETE` | `/chat/sessions/{id}` | supprime la conversation et son historique |
+
+Le flux SSE émet `token` (texte au fil de l'eau), `tool_start` / `tool_end` (outils
+`search_events`, `list_event_themes` de l'agent LangChain), `sources`, puis `done` (ou
+`error`). La session d'un autre utilisateur répond `404` ; un second message pendant
+une réponse en cours, `409`.
+
+```bash
+TOKEN=$(curl -s -X POST http://127.0.0.1:8000/auth/token -d 'username=demo&password=demo-puls-2026' | jq -r .access_token)
+SID=$(curl -s -X POST http://127.0.0.1:8000/chat/sessions -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' -d '{}' | jq -r .session_id)
+curl -N -X POST http://127.0.0.1:8000/chat/sessions/$SID/messages -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' -d '{"content": "Des événements à Aix dans les 15 prochains jours ?"}'
+```
+
+**Fenêtre de chat de développement (Gradio)** : elle ne passe que par l'API HTTP, pour
+valider l'aller-retour front ↔ back. Script autonome (PEP 723) : Gradio s'installe dans
+un environnement isolé, hors du lock du projet et de l'image Docker.
+
+```bash
+uv run --script scripts/chat_ui.py    # http://127.0.0.1:7860 (API_URL, GRADIO_SERVER_PORT)
+```
+
+### Utilisateur de démonstration
+
+Les routes protégées demandent un jeton JWT (`SECRET_KEY` doit être renseignée dans
+`.env`). Compte de démonstration, **réservé au développement local** :
+
+| Champ | Valeur |
+|---|---|
+| username | `demo` |
+| password | `demo-puls-2026` |
+| email | `demo@puls-events.local` |
+
+Aucun compte n'est créé automatiquement : sur une base neuve (`data/database.db`, ou le
+volume `/app/data` de l'image), l'enregistrer une fois :
+
+```bash
+curl -X POST http://127.0.0.1:8000/auth/register -H 'Content-Type: application/json' \
+  -d '{"username": "demo", "password": "demo-puls-2026", "email": "demo@puls-events.local", "full_name": "Utilisateur démo"}'
+```
+
+Puis obtenir un jeton et l'utiliser :
+
+```bash
+TOKEN=$(curl -s -X POST http://127.0.0.1:8000/auth/token \
+  -d 'username=demo&password=demo-puls-2026' | jq -r .access_token)
+curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8000/<route-protégée>
+```
+
+Dans Swagger (`http://127.0.0.1:8000/docs`) : bouton **Authorize**, puis `demo` /
+`demo-puls-2026`.
 
 ## Organisation
 

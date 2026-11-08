@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import os
 from collections.abc import Awaitable, Callable
@@ -152,3 +153,10 @@ class IndexManager:
         """Attend la fin de la synchronisation de fond éventuelle (tests, arrêt)."""
         if self._task is not None:
             await self._task
+
+    async def stop(self) -> None:
+        """Annule la synchronisation de fond éventuelle (arrêt de l'API)."""
+        if self._task is not None and not self._task.done():
+            self._task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._task
