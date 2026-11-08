@@ -108,6 +108,13 @@ Documentation interactive : `http://127.0.0.1:8000/docs`. L'index régional est 
 une fois au démarrage (`data/index`, voir ci-dessus) ; s'il a plus de 24 h, il continue
 de servir pendant qu'une resynchronisation tourne en tâche de fond.
 
+**Ce que couvre l'assistant** (`GET /metadata`) : zone, période (365 jours glissants),
+nombre d'événements par commune, fraîcheur de l'index, modèles et seuil de pertinence.
+
+```bash
+curl -s http://127.0.0.1:8000/metadata | jq '{zone, lookback_days, index, llm_model, communes: .communes[:5]}'
+```
+
 **Poser une question** (`POST /ask`) :
 
 ```bash
