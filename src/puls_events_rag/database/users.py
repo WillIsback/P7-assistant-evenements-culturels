@@ -5,12 +5,12 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, Request, status
 from sqlmodel import select
 
 from puls_events_rag.auth.dependencies import ActiveUser
 from puls_events_rag.auth.schemas import UserRead
-from puls_events_rag.database.models import User
+from puls_events_rag.database.models import ChatSession, User
 from puls_events_rag.database.sql import SessionDep
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -44,7 +44,9 @@ def read_user(user_id: int, session: SessionDep, current_user: ActiveUser) -> Us
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Supprimer son propre compte",
 )
-def delete_user(user_id: int, session: SessionDep, current_user: ActiveUser) -> None:
+async def delete_user(
+    user_id: int, request: Request, session: SessionDep, current_user: ActiveUser
+) -> None:
     if current_user.id != user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -55,5 +57,12 @@ def delete_user(user_id: int, session: SessionDep, current_user: ActiveUser) -> 
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
+    # Les conversations partent avec le compte : lignes et fils du checkpointer.
+    chat_sessions = session.exec(select(ChatSession).where(ChatSession.user_id == user_id)).all()
+    chat = getattr(request.app.state, "chat", None)
+    for chat_session in chat_sessions:
+        session.delete(chat_session)
+        if chat is not None:
+            await chat.delete_thread(chat_session.session_id)
     session.delete(user)
     session.commit()

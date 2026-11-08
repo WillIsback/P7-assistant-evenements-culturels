@@ -14,6 +14,8 @@ from puls_events_rag.api.rag_routes import router as rag_router
 from puls_events_rag.api.schemas import HealthResponse
 from puls_events_rag.api.services import Services, build_services
 from puls_events_rag.auth.router import router as auth_router
+from puls_events_rag.chat.router import router as chat_router
+from puls_events_rag.chat.setup import build_chat, open_checkpointer
 from puls_events_rag.core.providers.openai_api import build_client, cached_embeddings
 from puls_events_rag.database.sql import create_db_and_tables
 from puls_events_rag.database.users import router as users_router
@@ -29,6 +31,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     les routes RAG répondent alors 503.
     """
     create_db_and_tables()
+    app.state.chat = None
     try:
         embeddings = cached_embeddings()
         app.state.services = build_services(
@@ -37,10 +40,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     except RuntimeError as exc:
         logger.error("Services RAG non initialisés : %s", exc)
         app.state.services = None
-    yield
     services: Services | None = app.state.services
-    if services is not None:
-        await services.manager.stop()
+    if services is None:
+        yield
+        return
+    async with open_checkpointer() as checkpointer:
+        app.state.chat = build_chat(services, checkpointer)
+        yield
+    await services.manager.stop()
 
 
 app = FastAPI(
@@ -54,6 +61,7 @@ app = FastAPI(
 app.include_router(auth_router)
 app.include_router(users_router)
 app.include_router(rag_router)
+app.include_router(chat_router)
 
 
 @app.get("/health", tags=["ops"], response_model=HealthResponse, response_model_exclude_none=True)
