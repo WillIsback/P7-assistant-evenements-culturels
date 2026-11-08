@@ -26,5 +26,8 @@ data/index.old/
 data/cache/
 reports/
 
+# Bases SQLite locales
+*.db
+
 # Outillage local
 .codegraph/

@@ -13,20 +13,34 @@ from puls_events_rag.api.rag_routes import index_status
 from puls_events_rag.api.rag_routes import router as rag_router
 from puls_events_rag.api.schemas import HealthResponse
 from puls_events_rag.api.services import Services, build_services
+from puls_events_rag.auth.router import router as auth_router
 from puls_events_rag.core.providers.openai_api import build_client, cached_embeddings
+from puls_events_rag.database.sql import create_db_and_tables
+from puls_events_rag.database.users import router as users_router
 
 logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Charge l'index régional et le LLM une seule fois, au démarrage."""
-    embeddings = cached_embeddings()
-    app.state.services = build_services(
-        embeddings=embeddings, model=embeddings.model, llm=build_client()
-    )
+    """Prépare la base, puis charge l'index régional et le LLM une seule fois.
+
+    Sans configuration LLM/embeddings, l'API démarre quand même (auth, /health) ;
+    les routes RAG répondent alors 503.
+    """
+    create_db_and_tables()
+    try:
+        embeddings = cached_embeddings()
+        app.state.services = build_services(
+            embeddings=embeddings, model=embeddings.model, llm=build_client()
+        )
+    except RuntimeError as exc:
+        logger.error("Services RAG non initialisés : %s", exc)
+        app.state.services = None
     yield
-    await app.state.services.manager.stop()
+    services: Services | None = app.state.services
+    if services is not None:
+        await services.manager.stop()
 
 
 app = FastAPI(
@@ -37,6 +51,8 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.include_router(auth_router)
+app.include_router(users_router)
 app.include_router(rag_router)
 
 

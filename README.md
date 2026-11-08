@@ -148,6 +148,36 @@ Avec Docker :
 docker run --rm -p 8000:8000 --env-file .env ghcr.io/willisback/p7-assistant-evenements-culturels:latest
 ```
 
+### Utilisateur de démonstration
+
+Les routes protégées demandent un jeton JWT (`SECRET_KEY` doit être renseignée dans
+`.env`). Compte de démonstration, **réservé au développement local** :
+
+| Champ | Valeur |
+|---|---|
+| username | `demo` |
+| password | `demo-puls-2026` |
+| email | `demo@puls-events.local` |
+
+Aucun compte n'est créé automatiquement : sur une base neuve (`data/database.db`, ou le
+volume `/app/data` de l'image), l'enregistrer une fois :
+
+```bash
+curl -X POST http://127.0.0.1:8000/auth/register -H 'Content-Type: application/json' \
+  -d '{"username": "demo", "password": "demo-puls-2026", "email": "demo@puls-events.local", "full_name": "Utilisateur démo"}'
+```
+
+Puis obtenir un jeton et l'utiliser :
+
+```bash
+TOKEN=$(curl -s -X POST http://127.0.0.1:8000/auth/token \
+  -d 'username=demo&password=demo-puls-2026' | jq -r .access_token)
+curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8000/<route-protégée>
+```
+
+Dans Swagger (`http://127.0.0.1:8000/docs`) : bouton **Authorize**, puis `demo` /
+`demo-puls-2026`.
+
 ## Organisation
 
 | Chemin | Contenu |

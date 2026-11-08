@@ -18,6 +18,10 @@ dependencies = [
     "httpx>=0.28.1",
     "python-dotenv>=1.2.4",
     "cashews[diskcache,redis]>=7.6.0",
+    "pyjwt>=2.15.1",
+    "pwdlib[argon2]>=0.3.1",
+    "sqlmodel>=0.0.48",
+    "python-multipart>=0.0.33",
 ]
 
 [dependency-groups]
