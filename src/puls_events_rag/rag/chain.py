@@ -20,9 +20,11 @@ from puls_events_rag.rag.query import QueryParser, SearchQuery
 logger = logging.getLogger(__name__)
 
 DEFAULT_K = 5
-# Distance L2² mistral-embed mesurée le 2026-11-08 : sujets présents ≈ 0,35-0,45,
-# hors sujet (football, cuisine, météo) ≥ 0,49.
-DEFAULT_MAX_DISTANCE = 0.48
+# Distance L2² mistral-embed de la requête courte déduite par le parseur, mesurée le
+# 2026-11-08 : sujets présents 0,35-0,51 (filtrés par commune/période), hors sujet
+# 0,48-0,65. Le seuil écarte le gros du hors-sujet ; les cas limites (« recette de
+# pizza » 0,48) sont laissés au LLM, qui doit répondre qu'aucun événement ne correspond.
+DEFAULT_MAX_DISTANCE = 0.53
 NO_RESULT = (
     "Je n'ai trouvé aucun événement correspondant dans l'agenda de la métropole "
     "Aix-Marseille-Provence. Essayez un autre thème, une autre commune ou une autre période."
