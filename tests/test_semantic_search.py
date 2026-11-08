@@ -1,0 +1,96 @@
+"""Tests unitaires du traitement RAG des événements (aucun appel réseau)."""
+
+from __future__ import annotations
+
+import asyncio
+from typing import Any
+
+import httpx
+import pytest
+from langchain_core.embeddings import DeterministicFakeEmbedding
+
+from puls_events_rag.core.documents import CHUNK_SIZE, events_to_documents
+from puls_events_rag.core.providers.open_agenda import OpenAgendaClient
+from puls_events_rag.core.semantic_search import EventIndex, retrieve_events
+
+EMBEDDINGS = DeterministicFakeEmbedding(size=32)
+
+
+def _event(uid: int = 43496199, **overrides: Any) -> dict[str, Any]:
+    """Événement au format réel de l'API Open Agenda v2 (``detailed=1``)."""
+    event: dict[str, Any] = {
+        "uid": uid,
+        "title": {"fr": "Kouss•Ftartchi", "en": "Kouss•Ftartchi"},
+        "description": {"fr": "Cuisine et concert au menu !", "en": "Cuisine and concert!"},
+        "longDescription": {
+            "fr": "Cuisine et concert au menu !  \nLe projet tunisien **Ftartchi** est invité."
+        },
+        "keywords": {"fr": ["Concert", "Gratuit"]},
+        "dateRange": {"fr": "Vendredi 28 août, 14h30"},
+        "firstTiming": {"begin": "2026-08-28T14:30:00+02:00", "end": "2026-08-28T16:30:00+02:00"},
+        "lastTiming": {"begin": "2026-08-28T14:30:00+02:00", "end": "2026-08-28T16:30:00+02:00"},
+        "location": {
+            "name": "La Cômerie",
+            "address": "176 rue Breteuil, 13006 Marseille",
+            "city": "Marseille",
+        },
+        "age": {"min": 6, "max": None},
+        "conditions": {},
+        "canonicalUrl": "https://openagenda.com/saison-mediterranee-2026/events/43496199",
+    }
+    event.update(overrides)
+    return event
+
+
+def test_index_renvoie_des_evenements_distincts_tries() -> None:
+    events = [_event(uid, title={"fr": f"Événement {uid}"}) for uid in range(1, 6)]
+    events[0]["longDescription"] = {"fr": " ".join(f"mot{i}" for i in range(CHUNK_SIZE))}
+
+    index = asyncio.run(EventIndex.from_events(events, EMBEDDINGS))
+    target = events_to_documents([events[2]])[0].page_content
+    results = asyncio.run(index.search(target, k=3))
+
+    assert index.event_count == 5
+    assert results[0].uid == 3
+    assert results[0].score == pytest.approx(0.0, abs=1e-5)
+    assert len({r.uid for r in results}) == len(results) == 3
+    assert [r.score for r in results] == sorted(r.score for r in results)
+
+
+def test_index_vide_ne_calcule_aucun_embedding() -> None:
+    index = asyncio.run(EventIndex.from_events([], EMBEDDINGS))
+
+    assert index.event_count == 0
+    assert asyncio.run(index.search("concert")) == []
+
+
+class _FakeExtractor:
+    async def get_keywords(self, query: str) -> list[str]:
+        return ["concert"]
+
+
+def test_retrieve_events_de_bout_en_bout_sans_reseau() -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(200, json={"total": 2, "events": [_event(1), _event(2)]})
+
+    client = OpenAgendaClient(
+        api_key="cle-test", client=httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    )
+
+    results = asyncio.run(
+        retrieve_events(
+            "Un concert à Marseille ?",
+            llm=_FakeExtractor(),
+            embeddings=EMBEDDINGS,
+            client=client,
+            k=1,
+        )
+    )
+
+    assert requests[0].url.params["detailed"] == "1"
+    assert requests[0].url.params["search"] == "concert"
+    assert len(results) == 1
+    assert results[0].metadata["title"] == "Kouss•Ftartchi"
