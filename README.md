@@ -328,6 +328,11 @@ uv add <paquet>                                              # met à jour pypro
 uv export --no-hashes --no-dev --frozen -o requirements.txt  # puis régénérer requirements.txt
 ```
 
+Les PR Dependabot ne touchent que `uv.lock` : le workflow `dependabot-requirements`
+régénère `requirements.txt` et le pousse sur la branche de la PR. Il lit le secret
+**Dependabot** `DEPENDABOT_PUSH_TOKEN` (PAT ou token d'App avec `contents: write`) ; un push
+fait avec `GITHUB_TOKEN` ne relancerait pas la CI.
+
 ### Bibliothèques clés
 
 | Bibliothèque | Rôle |
