@@ -201,6 +201,70 @@ un environnement isolé, hors du lock du projet et de l'image Docker.
 uv run --script scripts/chat_ui.py    # http://127.0.0.1:7860 (API_URL, GRADIO_SERVER_PORT)
 ```
 
+### Démarrer sans cloner le dépôt (image Docker + Gradio)
+
+Deux commandes suffisent, sous Linux, macOS ou Windows (PowerShell) : l'API vient de
+l'image publiée sur GHCR, la fenêtre de chat est le script Gradio téléchargé à la volée.
+
+**Prérequis**
+
+- [Docker](https://docs.docker.com/get-docker/) (Docker Desktop sous Windows/macOS), démarré.
+- [uv](https://docs.astral.sh/uv/getting-started/installation/) ≥ 0.13 pour la fenêtre de
+  chat. **Aucun venv ni `pip install gradio` n'est à créer** : `uv run -` lit l'en-tête
+  PEP 723 du script (Python 3.11 et dépendances `gradio`, `httpx`) et l'installe dans un
+  environnement temporaire isolé, qu'il met en cache pour les lancements suivants.
+- `curl` (inclus dans Linux, macOS et Windows 10+ ; sous PowerShell, écrire `curl.exe`
+  car `curl` y est un alias d'`Invoke-WebRequest`).
+- **Un fichier `.env` dans le dossier courant** : à défaut de clone, le récupérer et le
+  remplir (le fichier doit exister, sinon `--env-file` échoue) :
+
+  ```bash
+  curl -fsSLo .env https://raw.githubusercontent.com/WillIsback/P7-assistant-evenements-culturels/main/.env.example
+  ```
+
+  Variables à renseigner pour l'image : `LLM_PROFILE=ci` (le profil `local` suppose un
+  serveur vLLM sur votre réseau), `OPENROUTER_API_KEY` (chat et embeddings),
+  `OPENAGENDA_API_KEY` (resynchronisation de l'index) et `SECRET_KEY`
+  (`openssl rand -hex 32` ; sans elle, une clé éphémère invalide les jetons à chaque
+  redémarrage). Les valeurs ne doivent pas être entourées de guillemets : `--env-file`
+  les prendrait littéralement.
+
+**1. API (terminal 1)** — l'image embarque l'index régional ; port 8000 :
+
+```bash
+docker run --rm -p 8000:8000 --env-file .env ghcr.io/willisback/p7-assistant-evenements-culturels:v0.3.0
+```
+
+Prête quand `curl http://127.0.0.1:8000/health` renvoie `"loaded": true` (quelques
+secondes). Le tag de l'image porte le préfixe `v` (`:v0.3.0`) ; `:latest` donne la dernière release ; la commande est identique sous
+PowerShell.
+
+**2. Compte de démonstration (une seule fois)** — la base du conteneur est vierge et la
+fenêtre de chat se connecte avec `demo` / `demo-puls-2026` ; sans volume `-v puls-data:/app/data`
+le compte disparaît avec le conteneur (`--rm`) :
+
+```bash
+curl -X POST http://127.0.0.1:8000/auth/register -H 'Content-Type: application/json' \
+  -d '{"username": "demo", "password": "demo-puls-2026", "email": "demo@puls-events.local", "full_name": "Utilisateur démo"}'
+```
+
+```powershell
+Invoke-RestMethod -Method Post http://127.0.0.1:8000/auth/register -ContentType 'application/json' `
+  -Body '{"username": "demo", "password": "demo-puls-2026", "email": "demo@puls-events.local", "full_name": "Utilisateur démo"}'
+```
+
+**3. Fenêtre de chat Gradio (terminal 2)** :
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/WillIsback/P7-assistant-evenements-culturels/main/scripts/chat_ui.py | uv run -
+```
+
+Ouvrir <http://127.0.0.1:7860>. Le script vise `http://127.0.0.1:8000` ; pour une autre
+API ou un autre port : `API_URL=http://hote:8000 GRADIO_SERVER_PORT=7861` devant `uv`
+(PowerShell : `$env:API_URL="http://hote:8000"` avant la commande). Il écoute uniquement
+en local (`127.0.0.1`). Il est téléchargé depuis `main` : pour une version figée,
+remplacer `main` par le tag de la release (ex. `v0.3.0`).
+
 ### Utilisateur de démonstration
 
 Les routes protégées demandent un jeton JWT (`SECRET_KEY` doit être renseignée dans
