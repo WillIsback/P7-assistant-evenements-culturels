@@ -1,0 +1,69 @@
+# Workflow : requirements.txt des PR Dependabot
+# Dependabot met à jour uv.lock mais pas requirements.txt (export pip du lock) : la CI
+# « requirements.txt synchronisé avec uv.lock » échouait donc sur chaque PR de dépendances.
+# Ce workflow régénère l'export et le pousse sur la branche de la PR.
+#
+# Le push utilise le secret DEPENDABOT_PUSH_TOKEN (PAT ou token d'App, droit « contents:
+# write ») et non GITHUB_TOKEN : un push fait avec GITHUB_TOKEN ne déclenche aucun
+# workflow, la CI de la PR ne se relancerait pas. Le secret doit exister dans les secrets
+# **Dependabot** du dépôt (Settings → Secrets and variables → Dependabot), seuls lus par
+# les workflows lancés par Dependabot. Sans lui, le job échoue avec un message explicite.
+name: dependabot-requirements
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, reopened, synchronize]
+    paths: [uv.lock, pyproject.toml, requirements.txt]
+
+permissions:
+  contents: read
+
+jobs:
+  requirements:
+    name: Régénérer requirements.txt (Dependabot)
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Vérifier le secret de push
+        env:
+          PUSH_TOKEN: ${{ secrets.DEPENDABOT_PUSH_TOKEN }}
+        run: |
+          if [ -z "$PUSH_TOKEN" ]; then
+            echo "::error::Secret Dependabot DEPENDABOT_PUSH_TOKEN absent : voir l'en-tête de dependabot-requirements.yml"
+            exit 1
+          fi
+
+      - name: Checkout de la branche de la PR
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          persist-credentials: false
+
+      - name: Installer uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.13.7"
+
+      - name: Exporter requirements.txt depuis uv.lock
+        run: uv export --no-hashes --no-dev --frozen --quiet -o requirements.txt
+
+      - name: Pousser si l'export a changé
+        env:
+          PUSH_TOKEN: ${{ secrets.DEPENDABOT_PUSH_TOKEN }}
+          REPOSITORY: ${{ github.repository }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- requirements.txt; then
+            echo "✅ requirements.txt déjà synchronisé avec uv.lock."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add requirements.txt
+          git commit -m "chore(deps): régénérer requirements.txt depuis uv.lock"
+          # Le push avec ce token relance la CI de la PR (au contraire de GITHUB_TOKEN) ;
+          # le workflow se relance aussi, mais l'export est alors identique : aucun push.
+          git push "https://x-access-token:${PUSH_TOKEN}@github.com/${REPOSITORY}.git" "HEAD:refs/heads/${HEAD_REF}"
